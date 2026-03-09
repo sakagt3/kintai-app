@@ -3,6 +3,7 @@
  * 学習トピック・カスタム目標・クイズ出題数・表示ON/OFF・表示ボリュームを含む。
  */
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -241,5 +242,6 @@ export async function PATCH(request: Request) {
     });
   }
 
+  revalidatePath("/dashboard");
   return NextResponse.json({ success: true });
 }
