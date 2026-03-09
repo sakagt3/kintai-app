@@ -339,10 +339,10 @@ export function DashboardContent() {
         content: !hasPlan ? (
           <Link
             href="/dashboard/settings"
-            className="flex items-center justify-center gap-3 py-10 text-[#1E293B] transition hover:opacity-90 dark:text-slate-200"
+            className="flex items-center justify-center gap-2 py-4 text-[#1E293B] transition hover:opacity-90 dark:text-slate-200"
           >
-            <PlusCircle className="h-7 w-7 shrink-0 opacity-80" />
-            <span className="text-lg font-semibold">
+            <PlusCircle className="h-5 w-5 shrink-0 opacity-80" />
+            <span className="text-sm font-semibold">
               ＋ 自分だけの学習プランを作成する
             </span>
           </Link>
