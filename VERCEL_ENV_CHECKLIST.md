@@ -23,11 +23,13 @@
 
 ## 2. NEXTAUTH_URL を本番 URL に設定
 
-**NEXTAUTH_URL** の値を、次の文字列に **一字一句そのまま** 書き換えてください。
+**NEXTAUTH_URL** の値を、**Vercel の本番ドメイン** に書き換えてください。
 
-```
-https://kintaiapp0721-e6527u8bq-sakagt3s-projects.vercel.app
-```
+1. Vercel → kintai-app → **Settings** → **Domains** を開く  
+2. **Production** に表示されているドメイン（例: `kintai-app-khaki.vercel.app`）を確認  
+3. そのドメインに `https://` を付けたものを入れる（例: `https://kintai-app-khaki.vercel.app`）
+
+※ プレビュー用の長いURL（`kintai-xxxxx-sakagt3s-projects.vercel.app`）は使わないこと。
 
 ※ 先頭・末尾に `"` を付けないこと。
 

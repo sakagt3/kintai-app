@@ -12,31 +12,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        try {
+          if (!credentials?.email || !credentials?.password) return null;
 
-        const email = (credentials.email as string).trim().toLowerCase();
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
+          const email = (credentials.email as string).trim().toLowerCase();
+          const user = await prisma.user.findUnique({
+            where: { email },
+          });
 
-        if (!user) return null;
+          if (!user) return null;
 
-        const plainPassword = credentials.password as string;
-        const matches = isBcryptHash(user.password)
-          ? compareSync(plainPassword, user.password)
-          : user.password === plainPassword;
+          const plainPassword = credentials.password as string;
+          const matches = isBcryptHash(user.password)
+            ? compareSync(plainPassword, user.password)
+            : user.password === plainPassword;
 
-        if (matches) {
-          const u = user as { id: string; email: string; name: string | null; image?: string | null; role: string };
-          return {
-            id: u.id,
-            email: u.email,
-            name: u.name,
-            image: u.image ?? undefined,
-            role: u.role ?? "member",
-          };
+          if (matches) {
+            const u = user as { id: string; email: string; name: string | null; image?: string | null; role: string };
+            return {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              image: u.image ?? undefined,
+              role: u.role ?? "member",
+            };
+          }
+          return null;
+        } catch (e) {
+          console.error("[auth authorize]", e);
+          return null;
         }
-        return null;
       },
     }),
   ],

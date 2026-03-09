@@ -34,73 +34,111 @@ function parseCardOrder(v: string | null | undefined): string[] {
   }
 }
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
-
-  const userId = session.user.id;
-  let settings = await prisma.userSettings.findUnique({
-    where: { userId },
-  });
-
-  if (!settings) {
-    settings = await prisma.userSettings.create({
-      data: {
-        userId,
-        showSpecialDay: true,
-        showAiNews: true,
-        showAiTerm: true,
-        showAppliedPlan: true,
-        displayMode: "standard",
-        displayVolume: "simple",
-        dailyQuizCount: 5,
-        learningLevel: "intermediate",
-      },
-    });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true, email: true },
-  });
-
-  let preferredTopicIds: string[] = [];
-  if (settings.preferredTopicIds) {
-    try {
-      const parsed = JSON.parse(settings.preferredTopicIds);
-      preferredTopicIds = Array.isArray(parsed)
-        ? parsed.filter((x: unknown) => typeof x === "string")
-        : [];
-    } catch {
-      preferredTopicIds = [];
-    }
-  }
-
-  const cardOrder = (settings as { dashboardCardOrder?: string | null }).dashboardCardOrder;
+/** 設定API GET 用のデフォルトレスポンス（500 時もクライアントが同じ形で受け取れるようにする） */
+function defaultSettingsResponse(profile?: { name?: string; email?: string }) {
   return NextResponse.json({
     settings: {
-      showSpecialDay: settings.showSpecialDay,
-      showAiNews: settings.showAiNews,
-      showAiTerm: settings.showAiTerm ?? true,
-      showAppliedPlan: settings.showAppliedPlan ?? true,
-      displayMode: settings.displayMode,
-      displayVolume: settings.displayVolume ?? "simple",
-      preferredTopicIds,
-      customLearningGoal: settings.customLearningGoal ?? "",
-      dailyQuizCount: settings.dailyQuizCount ?? 5,
-      learningLevel: settings.learningLevel ?? "intermediate",
-      contentFocus: settings.contentFocus ?? "topic",
-      appliedPlanSummary: settings.appliedPlanSummary ?? "",
-      dashboardCardOrder: parseCardOrder(cardOrder),
-      customQuizName: settings.customQuizName ?? "",
+      showSpecialDay: true,
+      showAiNews: true,
+      showAiTerm: true,
+      showAppliedPlan: true,
+      displayMode: "standard",
+      displayVolume: "simple",
+      preferredTopicIds: [] as string[],
+      customLearningGoal: "",
+      dailyQuizCount: 5,
+      learningLevel: "intermediate",
+      contentFocus: "topic",
+      appliedPlanSummary: "",
+      dashboardCardOrder: [...CARD_ORDER_KEYS],
+      customQuizName: "",
     },
     profile: {
-      name: user?.name ?? "",
-      email: user?.email ?? "",
+      name: profile?.name ?? "",
+      email: profile?.email ?? "",
     },
   });
+}
+
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+    let settings = await prisma.userSettings.findUnique({
+      where: { userId },
+    });
+
+    if (!settings) {
+      try {
+        settings = await prisma.userSettings.create({
+          data: {
+            userId,
+            showSpecialDay: true,
+            showAiNews: true,
+            showAiTerm: true,
+            showAppliedPlan: true,
+            displayMode: "standard",
+            displayVolume: "simple",
+            dailyQuizCount: 5,
+            learningLevel: "intermediate",
+            contentFocus: "topic",
+          },
+        });
+      } catch (createErr) {
+        console.error("[GET /api/settings] create failed:", createErr);
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }).catch(() => null);
+        return defaultSettingsResponse(user ?? undefined);
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    }).catch(() => null);
+
+    let preferredTopicIds: string[] = [];
+    if (settings.preferredTopicIds) {
+      try {
+        const parsed = JSON.parse(settings.preferredTopicIds);
+        preferredTopicIds = Array.isArray(parsed)
+          ? parsed.filter((x: unknown) => typeof x === "string")
+          : [];
+      } catch {
+        preferredTopicIds = [];
+      }
+    }
+
+    const cardOrder = (settings as { dashboardCardOrder?: string | null }).dashboardCardOrder;
+    return NextResponse.json({
+      settings: {
+        showSpecialDay: settings.showSpecialDay,
+        showAiNews: settings.showAiNews,
+        showAiTerm: settings.showAiTerm ?? true,
+        showAppliedPlan: settings.showAppliedPlan ?? true,
+        displayMode: settings.displayMode,
+        displayVolume: settings.displayVolume ?? "simple",
+        preferredTopicIds,
+        customLearningGoal: settings.customLearningGoal ?? "",
+        dailyQuizCount: settings.dailyQuizCount ?? 5,
+        learningLevel: settings.learningLevel ?? "intermediate",
+        contentFocus: settings.contentFocus ?? "topic",
+        appliedPlanSummary: settings.appliedPlanSummary ?? "",
+        dashboardCardOrder: parseCardOrder(cardOrder),
+        customQuizName: settings.customQuizName ?? "",
+      },
+      profile: {
+        name: user?.name ?? "",
+        email: user?.email ?? "",
+      },
+    });
+  } catch (e) {
+    console.error("[GET /api/settings]", e);
+    return defaultSettingsResponse();
+  }
 }
 
 export async function PATCH(request: Request) {

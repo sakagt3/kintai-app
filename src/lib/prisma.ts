@@ -1,6 +1,7 @@
 /**
  * Prisma クライアントのシングルトン。
- * Supabase 利用時は DIRECT_URL（直接接続）を優先。.env の引用符を除去してから使用する。
+ * 本番（Vercel 等）では DATABASE_URL（Pooler）を優先し接続数・タイムアウトを防ぐ。
+ * .env の引用符を除去してから使用する。
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -8,12 +9,17 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function sanitizeDbUrl(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  const url = raw.trim().replace(/^["']|["']$/g, "");
+  let url = raw.trim().replace(/^["']|["']$/g, "");
   if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) return undefined;
+  // Supabase では SSL が必須のことが多い（本番・Vercel で接続エラーを防ぐ）
+  if (url.includes("supabase") && !url.includes("sslmode=")) {
+    url += url.includes("?") ? "&sslmode=require" : "?sslmode=require";
+  }
   return url;
 }
 
-const dbUrl = sanitizeDbUrl(process.env.DIRECT_URL || process.env.DATABASE_URL);
+// サーバーレスでは Pooler (DATABASE_URL) を優先。未設定時は DIRECT_URL にフォールバック
+const dbUrl = sanitizeDbUrl(process.env.DATABASE_URL || process.env.DIRECT_URL);
 
 export const prisma =
   globalForPrisma.prisma ||

@@ -27,52 +27,60 @@ function getLast7DaysDateStrings() {
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
-  const today = getTodayDateString();
-  const last7Dates = getLast7DaysDateStrings();
-  const [todayAttendance, historyRecords] = await Promise.all([
-    prisma.attendance.findFirst({
-      where: { userId: session.user.id, date: today },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.attendance.findMany({
-      where: { userId: session.user.id, date: { in: last7Dates } },
-      orderBy: { date: "desc" },
-    }),
-  ]);
-  const historyByDate = Object.fromEntries(
-    historyRecords.map((r) => [
-      r.date,
-      {
-        clockIn: r.clockIn,
-        clockOut: r.clockOut,
-        breakStart: r.breakStart,
-        breakEnd: r.breakEnd,
-      },
-    ]),
-  );
-  return NextResponse.json({
-    today: todayAttendance
-      ? {
-          date: today,
-          clockIn: todayAttendance.clockIn,
-          clockOut: todayAttendance.clockOut,
-          breakStart: todayAttendance.breakStart,
-          breakEnd: todayAttendance.breakEnd,
-        }
-      : {
-          date: today,
-          clockIn: null,
-          clockOut: null,
-          breakStart: null,
-          breakEnd: null,
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+    const today = getTodayDateString();
+    const last7Dates = getLast7DaysDateStrings();
+    const [todayAttendance, historyRecords] = await Promise.all([
+      prisma.attendance.findFirst({
+        where: { userId: session.user.id, date: today },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.attendance.findMany({
+        where: { userId: session.user.id, date: { in: last7Dates } },
+        orderBy: { date: "desc" },
+      }),
+    ]);
+    const historyByDate = Object.fromEntries(
+      historyRecords.map((r) => [
+        r.date,
+        {
+          clockIn: r.clockIn,
+          clockOut: r.clockOut,
+          breakStart: r.breakStart,
+          breakEnd: r.breakEnd,
         },
-    last7Dates,
-    historyByDate,
-  });
+      ]),
+    );
+    return NextResponse.json({
+      today: todayAttendance
+        ? {
+            date: today,
+            clockIn: todayAttendance.clockIn,
+            clockOut: todayAttendance.clockOut,
+            breakStart: todayAttendance.breakStart,
+            breakEnd: todayAttendance.breakEnd,
+          }
+        : {
+            date: today,
+            clockIn: null,
+            clockOut: null,
+            breakStart: null,
+            breakEnd: null,
+          },
+      last7Dates,
+      historyByDate,
+    });
+  } catch (e) {
+    console.error("[GET /api/attendance]", e);
+    return NextResponse.json(
+      { error: "勤怠データの取得に失敗しました。" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: Request) {

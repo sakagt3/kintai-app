@@ -2,9 +2,8 @@
 
 /**
  * Habit Logic ダッシュボード: ①勤怠固定、以降はD&Dで並び替え可能（学習・今日は何の日・AI用語・ヘッドライン）
- * カード類は next/dynamic で ssr: false にして Hydration エラーを防止。
+ * 本番でチャンク読み込み失敗を防ぐためカードは静的インポート。
  */
-import dynamic from "next/dynamic";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   DndContext,
@@ -27,6 +26,10 @@ import { toast } from "sonner";
 import { useMounted } from "@/hooks/useMounted";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PunchPanel } from "./PunchPanel";
+import { TodayAiContent } from "./TodayAiContent";
+import { HeadlineCard } from "./cards/HeadlineCard";
+import { SpecialDayCard } from "./cards/SpecialDayCard";
+import { AiTermCard } from "./cards/AiTermCard";
 import { TOPICS } from "@/lib/topics";
 import Link from "next/link";
 import {
@@ -35,16 +38,6 @@ import {
   PlusCircle,
   GripVertical,
 } from "lucide-react";
-
-const LoadingCard = () => (
-  <div className="min-h-[100px] rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-center dark:border-slate-700 dark:bg-slate-800/30">
-    <span className="text-sm text-slate-400">読み込み中…</span>
-  </div>
-);
-const TodayAiContent = dynamic(() => import("./TodayAiContent").then((m) => ({ default: m.TodayAiContent })), { ssr: false, loading: LoadingCard });
-const HeadlineCard = dynamic(() => import("./cards/HeadlineCard").then((m) => ({ default: m.HeadlineCard })), { ssr: false, loading: LoadingCard });
-const SpecialDayCard = dynamic(() => import("./cards/SpecialDayCard").then((m) => ({ default: m.SpecialDayCard })), { ssr: false, loading: LoadingCard });
-const AiTermCard = dynamic(() => import("./cards/AiTermCard").then((m) => ({ default: m.AiTermCard })), { ssr: false, loading: LoadingCard });
 
 const CARD_ORDER_KEYS = ["learning", "specialDay", "aiTerm", "headline"] as const;
 type CardId = (typeof CARD_ORDER_KEYS)[number];
@@ -272,6 +265,7 @@ export function DashboardContent() {
   }, [fetchSettings]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const onFocus = () => fetchSettings();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -282,11 +276,20 @@ export function DashboardContent() {
       const res = await fetch("/api/attendance");
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json?.error ?? "勤怠データの取得に失敗しました。");
+        // 401/500 でも画面は落とさず空状態で表示（トーストのみ）
+        const msg = res.status === 401
+          ? "認証の有効期限が切れている可能性があります。再読み込みするか、一度ログアウトして再度ログインしてください。"
+          : (json?.error ?? "勤怠データの取得に失敗しました。");
+        toast.error(msg);
         setData(null);
+        setLoading(false);
         return;
       }
-      setData(json);
+      setData(
+        json?.today != null || json?.last7Dates != null || json?.historyByDate != null
+          ? json
+          : null
+      );
     } catch {
       toast.error(
         "通信エラーが発生しました。しばらく経ってからお試しください。",
@@ -438,6 +441,12 @@ export function DashboardContent() {
       <p className="text-sm font-medium text-slate-600 dark:text-slate-400" aria-live="polite">
         {todayLabel}
       </p>
+      {/* 勤怠取得失敗時は案内のみ表示し、画面はそのまま使えるようにする */}
+      {!data && !loading && (
+        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+          勤怠データを読み込めませんでした。本番URL（Vercel の Domains に表示の Production）で開いているか確認し、必要なら再ログインしてください。
+        </p>
+      )}
 
       {/* ① 勤怠パネル（固定） */}
       <div className={CARD_CLASS}>
@@ -474,44 +483,60 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* 並び替え可能カード（クライアントマウント後のみ DnD 有効で Hydration エラー防止） */}
-      {!mounted ? (
-        (Array.isArray(visibleOrder) ? visibleOrder : []).map((id) => {
-          const entry = cardContent?.[id as CardId];
-          if (!entry) return null;
-          return (
-            <div key={id} className={CARD_CLASS}>
-              <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-                <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
-                  {entry?.title ?? "—"}
-                </h2>
-              </div>
-              <div className="p-5">{entry?.content ?? null}</div>
+      {/* 並び替え可能カード（エラー時は一部だけ表示して本番で落ちないように） */}
+      <ErrorBoundary
+        sectionName="コンテンツカード"
+        fallback={
+          <div className={CARD_CLASS}>
+            <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+              <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+                コンテンツ
+              </h2>
             </div>
-          );
-        })
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={Array.isArray(visibleOrder) ? visibleOrder : []}
-            strategy={verticalListSortingStrategy}
+            <div className="p-5 text-sm text-slate-600 dark:text-slate-400">
+              一部コンテンツを読み込めませんでした。ページを再読み込みしてください。
+            </div>
+          </div>
+        }
+      >
+        {!mounted ? (
+          (Array.isArray(visibleOrder) ? visibleOrder : []).map((id) => {
+            const entry = cardContent?.[id as CardId];
+            if (!entry) return null;
+            return (
+              <div key={id} className={CARD_CLASS}>
+                <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+                  <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+                    {entry?.title ?? "—"}
+                  </h2>
+                </div>
+                <div className="p-5">{entry?.content ?? null}</div>
+              </div>
+            );
+          })
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            {(Array.isArray(visibleOrder) ? visibleOrder : []).map((id) => {
-              const entry = cardContent?.[id as CardId];
-              if (!entry) return null;
-              return (
-                <SortableCard key={id} id={id as CardId} title={entry.title ?? "—"}>
-                  {entry.content}
-                </SortableCard>
-              );
-            })}
-          </SortableContext>
-        </DndContext>
-      )}
+            <SortableContext
+              items={Array.isArray(visibleOrder) ? visibleOrder : []}
+              strategy={verticalListSortingStrategy}
+            >
+              {(Array.isArray(visibleOrder) ? visibleOrder : []).map((id) => {
+                const entry = cardContent?.[id as CardId];
+                if (!entry) return null;
+                return (
+                  <SortableCard key={id} id={id as CardId} title={entry.title ?? "—"}>
+                    {entry.content}
+                  </SortableCard>
+                );
+              })}
+            </SortableContext>
+          </DndContext>
+        )}
+      </ErrorBoundary>
 
       {hasPlan && showAppliedPlan && appliedPlanSummary?.trim() && (
         <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-5 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:bg-slate-800/50">

@@ -15,8 +15,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  if (!session) redirect("/login");
+  let session = null;
+  try {
+    session = await auth();
+  } catch (e) {
+    console.error("[DashboardLayout] auth() failed:", e);
+    redirect("/");
+  }
+  if (!session) redirect("/");
+
+  const userName = (session?.user && typeof session.user === "object" && ("name" in session.user ? session.user.name : "email" in session.user ? session.user.email : null)) ?? "—";
+  const displayName = typeof userName === "string" ? userName : "—";
+  const isAdmin = (session?.user && typeof session.user === "object" && "role" in session.user && session.user.role === "admin") ?? false;
 
   return (
     <div className="flex min-h-screen bg-slate-100 dark:bg-[#0f172a]">
@@ -25,7 +35,7 @@ export default async function DashboardLayout({
           <div className="border-b border-white/10 px-4 py-5">
             <h1 className="text-lg font-bold tracking-tight">Habit Logic</h1>
             <p className="mt-1 truncate text-xs text-white/70">
-              {session?.user?.name ?? session?.user?.email ?? "—"}
+              {displayName}
             </p>
           </div>
           <nav className="flex-1 space-y-0.5 p-3">
@@ -57,7 +67,7 @@ export default async function DashboardLayout({
               <Settings className="h-5 w-5" />
               設定
             </Link>
-            {session?.user?.role === "admin" && (
+            {isAdmin && (
               <Link
                 href="/admin"
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
