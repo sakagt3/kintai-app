@@ -40,7 +40,8 @@ model UserSettings {
   learningLevel       String   @default("intermediate") // beginner | intermediate | advanced | pro
   contentFocus        String   @default("topic") // "topic" | "quiz" トピック中心 vs 問題形式
   appliedPlanSummary  String?  // 適用した学習プラン（LLM生成方針）。メイン画面で表示
-  dashboardCardOrder  String?  // JSON: カード並び順 ["quiz","news","appliedPlan","forgettingCurve"]
+  dashboardCardOrder  String?  // JSON: カード並び順 ["quiz","news","specialDay"]
+  customQuizName      String?  // カスタムクイズ名（例: TOEIC、AI営業トーク）。ダッシュボードのクイズカード見出しに表示
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

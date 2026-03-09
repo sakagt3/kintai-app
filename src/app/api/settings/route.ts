@@ -17,7 +17,7 @@ function parseTopicIds(v: unknown): string[] | undefined {
   return arr.length ? arr : undefined;
 }
 
-const CARD_ORDER_KEYS = ["quiz", "news", "appliedPlan", "forgettingCurve"] as const;
+const CARD_ORDER_KEYS = ["quiz", "news", "specialDay"] as const;
 
 function parseCardOrder(v: string | null | undefined): string[] {
   if (!v) return [...CARD_ORDER_KEYS];
@@ -93,6 +93,7 @@ export async function GET() {
       contentFocus: settings.contentFocus ?? "topic",
       appliedPlanSummary: settings.appliedPlanSummary ?? "",
       dashboardCardOrder: parseCardOrder(cardOrder),
+      customQuizName: settings.customQuizName ?? "",
     },
     profile: {
       name: user?.name ?? "",
@@ -158,6 +159,10 @@ export async function PATCH(request: Request) {
     typeof raw.appliedPlanSummary === "string"
       ? raw.appliedPlanSummary.trim() || null
       : undefined;
+  const customQuizName =
+    typeof raw.customQuizName === "string"
+      ? raw.customQuizName.trim() || null
+      : undefined;
   const rawCardOrder = raw.dashboardCardOrder;
   const cardOrderArr = Array.isArray(rawCardOrder)
     ? (rawCardOrder as unknown[]).filter((x) => typeof x === "string")
@@ -192,6 +197,7 @@ export async function PATCH(request: Request) {
       contentFocus: (contentFocus as (typeof CONTENT_FOCUS)[number]) ?? "topic",
       appliedPlanSummary: appliedPlanSummary ?? null,
       dashboardCardOrder: null,
+      customQuizName: null,
     },
     update: {
       ...(showSpecialDay !== undefined && { showSpecialDay }),
@@ -214,6 +220,7 @@ export async function PATCH(request: Request) {
       ...(contentFocus !== undefined && { contentFocus }),
       ...(appliedPlanSummary !== undefined && { appliedPlanSummary }),
       ...(cardOrderStr !== undefined && { dashboardCardOrder: cardOrderStr }),
+      ...(customQuizName !== undefined && { customQuizName: customQuizName }),
     },
   });
   } catch (e) {

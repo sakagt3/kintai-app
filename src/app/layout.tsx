@@ -13,8 +13,8 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "勤怠管理システム",
-  description: "シンプルで使いやすい勤怠管理",
+  title: "HabitLogic",
+  description: "習慣を、上昇のロジックに変える。",
 };
 
 export default function RootLayout({

@@ -22,7 +22,7 @@ export default async function DashboardLayout({
       <aside className="fixed inset-y-0 left-0 z-30 w-56 border-r border-[#1e3a5f]/20 bg-[#1e3a5f] text-white">
         <div className="flex h-full flex-col">
           <div className="border-b border-white/10 px-4 py-5">
-            <h1 className="text-lg font-bold tracking-tight">勤怠管理</h1>
+            <h1 className="text-lg font-bold tracking-tight">HabitLogic</h1>
             <p className="mt-1 truncate text-xs text-white/70">
               {session.user?.name ?? session.user?.email}
             </p>

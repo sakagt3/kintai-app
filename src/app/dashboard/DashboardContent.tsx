@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * ダッシュボード: 打刻固定、コンテンツカードはドラッグで並び替え可能。デフォルト順はクイズ→ニュース→雑学。
+ * HabitLogic ダッシュボード: 打刻固定、3カード（クイズ・ニュース・今日は何の日）をドラッグで並び替え。
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -23,14 +23,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { PunchPanel } from "./PunchPanel";
-import { IntelligentBanner } from "./IntelligentBanner";
-import { QuizPanel } from "./QuizPanel";
-import { ForgettingCurveIndicator } from "./ForgettingCurveIndicator";
 import { TodayAiContent } from "./TodayAiContent";
+import { getTodaysAiNews } from "@/lib/aiNews";
+import { getTodaysSpecialDay } from "@/lib/specialDays";
 import type { BannerSettings } from "./IntelligentBanner";
-import { FileText, Calendar, GripVertical } from "lucide-react";
+import { FileText, Calendar, GripVertical, Newspaper, Sparkles, ExternalLink } from "lucide-react";
 
-const CARD_ORDER_KEYS = ["quiz", "news", "appliedPlan", "forgettingCurve"] as const;
+const CARD_ORDER_KEYS = ["quiz", "news", "specialDay"] as const;
 type CardId = (typeof CARD_ORDER_KEYS)[number];
 
 type TodayRecord = {
@@ -166,6 +165,58 @@ function SortableCard({
   );
 }
 
+/** 今日のAIトピック（ニュース）: 要約と出典リンクのみ */
+function NewsTopicCard() {
+  const news = useMemo(getTodaysAiNews, []);
+  return (
+    <div className="rounded-lg border border-sky-200/80 bg-sky-50/50 p-3">
+      <div className="flex items-start gap-2">
+        <Newspaper className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-sky-900">{news.title}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-sky-800/90">
+            {news.summary}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {news.source && (
+              <span className="text-xs text-sky-600">{news.source}</span>
+            )}
+            {news.url && (
+              <a
+                href={news.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-700"
+              >
+                詳細を見る
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 今日は何の日 */
+function SpecialDayCard() {
+  const special = useMemo(getTodaysSpecialDay, []);
+  return (
+    <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-3">
+      <div className="flex items-start gap-2">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-amber-800">今日は何の日</p>
+          <p className="mt-0.5 text-sm font-medium text-amber-900">
+            {special.name} — {special.description}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardContent() {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -173,6 +224,7 @@ export function DashboardContent() {
     useState<BannerSettings>(DEFAULT_BANNER_SETTINGS);
   const [appliedPlanSummary, setAppliedPlanSummary] = useState<string>("");
   const [showAppliedPlan, setShowAppliedPlan] = useState(true);
+  const [customQuizName, setCustomQuizName] = useState("");
   const [cardOrder, setCardOrder] = useState<CardId[]>([...CARD_ORDER_KEYS]);
 
   const sensors = useSensors(
@@ -194,6 +246,7 @@ export function DashboardContent() {
           });
           setAppliedPlanSummary(json.settings.appliedPlanSummary ?? "");
           setShowAppliedPlan(json.settings.showAppliedPlan ?? true);
+          setCustomQuizName(json.settings.customQuizName ?? "");
           const order = json.settings.dashboardCardOrder;
           if (Array.isArray(order) && order.length > 0) {
             const valid = order.filter((k) =>
@@ -254,7 +307,7 @@ export function DashboardContent() {
   if (loading && !data) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#1e3a5f] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
       </div>
     );
   }
@@ -283,49 +336,26 @@ export function DashboardContent() {
         : "勤務中"
     : null;
 
-  const cardMap: Record<
-    CardId,
-    { title: string; content: React.ReactNode }
-  > = {
+  const quizCardTitle = (customQuizName || "今日のカスタムクイズ").trim() || "今日のカスタムクイズ";
+
+  const cardMap: Record<CardId, { title: string; content: React.ReactNode }> = {
     quiz: {
-      title: "今日の問題（クイズ）",
-      content: <QuizPanel />,
+      title: quizCardTitle,
+      content: <TodayAiContent />,
     },
     news: {
-      title: "今日のニュース・学習",
-      content: (
-        <>
-          <IntelligentBanner settings={bannerSettings} />
-          <div className="mt-4">
-            <TodayAiContent />
-          </div>
-        </>
-      ),
+      title: "今日のAIトピック（ニュース）",
+      content: <NewsTopicCard />,
     },
-    appliedPlan: {
-      title: "現在の学習プラン",
-      content:
-        showAppliedPlan && appliedPlanSummary ? (
-          <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-3 py-2">
-            <p className="text-xs font-semibold text-emerald-800">現在の学習プラン</p>
-            <p className="mt-1 text-sm text-emerald-900/90">
-              {appliedPlanSummary.slice(0, 120)}
-              {appliedPlanSummary.length > 120 ? "…" : ""}
-            </p>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">表示する学習プランはありません</p>
-        ),
-    },
-    forgettingCurve: {
-      title: "忘却曲線",
-      content: <ForgettingCurveIndicator />,
+    specialDay: {
+      title: "今日は何の日",
+      content: <SpecialDayCard />,
     },
   };
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      {/* 最上部: 打刻固定・余白削減 */}
+      {/* 最上部: 打刻固定・余白詰め */}
       <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-4 py-2">
           <h2 className="text-sm font-semibold text-gray-800">打刻</h2>
@@ -356,7 +386,7 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* 並び替え可能: クイズ→ニュース→雑学（デフォルト） */}
+      {/* 並び替え可能: クイズ・ニュース・今日は何の日 */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -378,10 +408,20 @@ export function DashboardContent() {
         </SortableContext>
       </DndContext>
 
-      {/* 勤怠・履歴は常に下 */}
+      {showAppliedPlan && appliedPlanSummary && (
+        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 shadow-sm">
+          <p className="text-xs font-semibold text-emerald-800">現在の学習プラン</p>
+          <p className="mt-1 text-sm text-emerald-900/90">
+            {appliedPlanSummary.slice(0, 120)}
+            {appliedPlanSummary.length > 120 ? "…" : ""}
+          </p>
+        </div>
+      )}
+
+      {/* 勤怠・履歴 */}
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <FileText className="h-4 w-4 text-[#1e3a5f]" />
+          <FileText className="h-4 w-4 text-emerald-600" />
           勤怠状況（今日）
         </h2>
         <p className="mb-3 text-xs font-medium text-gray-500">
@@ -422,7 +462,7 @@ export function DashboardContent() {
         className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
       >
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <Calendar className="h-4 w-4 text-[#1e3a5f]" />
+          <Calendar className="h-4 w-4 text-emerald-600" />
           打刻履歴（直近1週間）
         </h2>
         <div className="overflow-hidden rounded-lg border border-gray-200">

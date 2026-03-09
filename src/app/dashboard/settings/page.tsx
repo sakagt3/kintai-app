@@ -26,6 +26,7 @@ type SettingsState = {
   displayVolume: DisplayVolume;
   preferredTopicIds: string[];
   customLearningGoal: string;
+  customQuizName: string;
   dailyQuizCount: number;
   learningLevel: LearningLevel;
   contentFocus: ContentFocus;
@@ -49,6 +50,7 @@ export default function SettingsPage() {
     displayVolume: "simple",
     preferredTopicIds: [],
     customLearningGoal: "",
+    customQuizName: "",
     dailyQuizCount: 5,
     learningLevel: "intermediate",
     contentFocus: "topic",
@@ -79,6 +81,7 @@ export default function SettingsPage() {
               ? data.settings.preferredTopicIds
               : [],
             customLearningGoal: data.settings.customLearningGoal ?? "",
+            customQuizName: data.settings.customQuizName ?? "",
             dailyQuizCount:
               typeof data.settings.dailyQuizCount === "number"
                 ? Math.min(20, Math.max(1, data.settings.dailyQuizCount))
@@ -119,6 +122,7 @@ export default function SettingsPage() {
         displayVolume: settings.displayVolume,
         preferredTopicIds: settings.preferredTopicIds,
         customLearningGoal: settings.customLearningGoal || undefined,
+        customQuizName: settings.customQuizName.trim() || undefined,
         dailyQuizCount: settings.dailyQuizCount,
         learningLevel: settings.learningLevel,
         contentFocus: settings.contentFocus,
@@ -129,6 +133,7 @@ export default function SettingsPage() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? "保存に失敗しました。");
         toast.success("設定を保存しました。");
+        router.refresh();
       })
       .catch((err: Error) => toast.error(err.message ?? "設定の保存に失敗しました。"))
       .finally(() => setSaving(false));
@@ -147,6 +152,7 @@ export default function SettingsPage() {
           preferredTopicIds: settings.preferredTopicIds,
           contentFocus: settings.contentFocus,
           appliedPlanSummary: summary,
+          customQuizName: settings.customQuizName.trim() || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -315,7 +321,7 @@ export default function SettingsPage() {
       </section>
 
       <p className="text-center text-xs text-gray-500">
-        科学的根拠に基づいた忘却曲線で復習タイミングを最適化します。
+        科学的アルゴリズムがあなたの定着度を最適化します。
       </p>
 
       {/* 自分だけのプラン表示トグル ＋ プラン選択（A. 選択式 / B. 生成AI式） */}
@@ -337,6 +343,24 @@ export default function SettingsPage() {
         <p className="mb-4 text-xs text-gray-500">
           このトグルをONにすると、以下の設定がダッシュボードに反映されます。
         </p>
+
+        <div className="mb-4">
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            カスタムクイズ名（ダッシュボードのクイズカード見出し）
+          </label>
+          <input
+            type="text"
+            value={settings.customQuizName}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, customQuizName: e.target.value }))
+            }
+            placeholder="例: TOEIC、AI営業トーク"
+            className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            空欄の場合は「今日のカスタムクイズ」と表示されます。
+          </p>
+        </div>
 
         {/* 4段階レベル */}
         <div className="mb-4">
@@ -505,7 +529,7 @@ export default function SettingsPage() {
           1日の標準問題数
         </h2>
         <p className="mb-3 text-xs text-gray-500">
-          選択式または生成AIで問題数を指定しない場合に適用されます（デフォルト5問）。忘却曲線に基づく復習を優先し、残りをランダムで出題します。
+          選択式または生成AIで問題数を指定しない場合に適用されます（デフォルト5問）。
         </p>
         <select
           value={settings.dailyQuizCount}
