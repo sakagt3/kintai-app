@@ -55,6 +55,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
   const [diagnosisPreviewText, setDiagnosisPreviewText] = useState("");
   const [showQuickDiagnosis, setShowQuickDiagnosis] = useState(false);
+  const [masterPlanLoading, setMasterPlanLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export default function SettingsPage() {
 
   const handleApply = async (planText: string) => {
     const summary =
-      planText.slice(0, 200) + (planText.length > 200 ? "…" : "");
+      planText.slice(0, 2000) + (planText.length > 2000 ? "…" : "");
     const res = await fetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -160,6 +161,32 @@ export default function SettingsPage() {
     toast.success("プランを適用しました。メイン画面に反映されます。");
     router.push("/dashboard");
     router.refresh();
+  };
+
+  const handleStartLearning = async () => {
+    setMasterPlanLoading(true);
+    setDiagnosisPreviewText("");
+    try {
+      const res = await fetch("/api/ai/master-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: settings.customLearningGoal,
+          level: settings.learningLevel,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
+      const masterPlan = data.masterPlan ?? "";
+      const caption =
+        "今後はこの方針に基づき、毎日ランダムに多様な問題・トピックを生成して表示します。\n\n";
+      setDiagnosisPreviewText(caption + masterPlan);
+      toast.success("マスタープランを生成しました。下の「このプランを適用して開始する」で確定できます。");
+    } catch {
+      toast.error("マスタープランの生成に失敗しました。");
+    } finally {
+      setMasterPlanLoading(false);
+    }
   };
 
   const handleDiagnosisResult = (
@@ -401,14 +428,27 @@ export default function SettingsPage() {
               rows={2}
               className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
             />
-            <button
-              type="button"
-              onClick={() => setShowQuickDiagnosis(true)}
-              className="shrink-0 rounded-lg bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
-            >
-              AIにレベルを判定してもらう
-            </button>
+            <div className="flex shrink-0 flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleStartLearning}
+                disabled={masterPlanLoading}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {masterPlanLoading ? "生成中…" : "この内容で学習を開始する"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQuickDiagnosis(true)}
+                className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
+              >
+                AIにレベルを判定してもらう
+              </button>
+            </div>
           </div>
+          <p className="mt-2 text-xs text-gray-500">
+            マスタープラン生成後、下のプレビューで「このプランを適用して開始する」を押すと、ダッシュボードで毎日その方針に沿った問題が表示されます。
+          </p>
         </div>
 
         {showQuickDiagnosis && (
