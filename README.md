@@ -2,7 +2,19 @@
 
 A modern attendance management web app with clock-in/out, break tracking, leave requests, and a Jobcan-style UI. Built for production use with validation, auth guards, and clear documentation.
 
-**商用レベルを想定した勤怠管理Webアプリ。** 出退勤・休憩打刻、休暇申請、ジョブカン風UIを備え、Zodバリデーション・認証ガード・エラーハンドリングを実装しています。
+**商用レベルを想定した勤怠管理Webアプリ。** 出退勤・休憩打刻、休暇申請、ジョブカン風UIに加え、**インテリジェント・ダッシュボード**（今日は何の日・AIデイリーニュース・表示設定の保存）を備えています。
+
+---
+
+## Features / 主な機能
+
+- **勤怠打刻**: 出勤・退勤・休憩開始・休憩戻り（位置情報対応）
+- **インテリジェント・トップバナー**
+  - **今日は何の日（詳細版）**: 由来や現代に活かせる教訓を含む3〜4行の説明
+  - **AIデイリーニュース**: AI業界の動向（RAG・エージェント・新モデル等）の要約（現状モック、将来API連携想定）
+  - **表示モード**: 標準（両方表示）／詳細解説モード（今日は何の日 or AIニュースを深掘り）
+- **設定画面**: 「今日は何の日」「AIニュース」のON/OFF、表示モード選択、プロフィール（名前・メール確認・名前変更）。設定はDBに保存されログインごとに反映。
+- **打刻後の演出**: 出勤打刻後に「今日のニュースは読みましたか？」の控えめなメッセージを表示
 
 ---
 
@@ -91,20 +103,29 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── attendance/   # GET: 勤怠取得, POST: 打刻
-│   │   ├── auth/        # NextAuth ルート
-│   │   ├── leave/       # 休暇申請 API
-│   │   └── register/    # 新規登録 API
-│   ├── dashboard/       # ダッシュボード・打刻・休暇申請・設定
+│   │   ├── auth/         # NextAuth ルート
+│   │   ├── leave/        # 休暇申請 API
+│   │   ├── register/     # 新規登録 API
+│   │   └── settings/     # GET/PATCH: ユーザー設定・プロフィール
+│   ├── dashboard/        # ダッシュボード・打刻・休暇申請・設定
+│   │   ├── IntelligentBanner.tsx  # 今日は何の日 + AIニュース
+│   │   ├── PunchPanel.tsx
+│   │   └── settings/     # 設定画面（表示カスタマイズ・表示モード・プロフィール）
 │   ├── login/
 │   ├── register/
 │   └── layout.tsx
-├── auth.ts              # NextAuth 設定
+├── auth.ts               # NextAuth 設定
 ├── lib/
 │   ├── prisma.ts
-│   ├── specialDays.ts   # 今日は何の日
-│   └── validations.ts   # Zod スキーマ
-└── middleware.ts        # 認証ガード（/dashboard → /login）
+│   ├── aiNews.ts         # AIデイリーニュース（モック、API連携想定）
+│   ├── specialDays.ts    # 今日は何の日（詳細説明付き）
+│   └── validations.ts    # Zod スキーマ
+└── middleware.ts         # 認証ガード（/dashboard → /login）
 ```
+
+### Database / データベース
+
+- **UserSettings**: ユーザーごとの表示設定（`showSpecialDay`, `showAiNews`, `displayMode`）。初回取得時にデフォルトでレコード作成。
 
 ---
 

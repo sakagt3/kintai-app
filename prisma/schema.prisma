@@ -16,7 +16,20 @@ model User {
   role          String        @default("member")
   attendance    Attendance[]
   leaveRequests LeaveRequest[]
+  settings      UserSettings?
   createdAt     DateTime      @default(now())
+}
+
+/// ダッシュボード表示カスタマイズ・表示モード（ログインごとに反映）
+model UserSettings {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  showSpecialDay   Boolean  @default(true)
+  showAiNews       Boolean  @default(true)
+  displayMode      String   @default("standard") // "standard" | "detail_special" | "detail_news"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Attendance {

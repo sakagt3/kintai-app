@@ -56,6 +56,16 @@ export function PunchPanel({ onSuccess }: { onSuccess: () => void }) {
           toast.success(`お疲れ様です！ ${displayTime}`, {
             description: `${LABELS[type]}を記録しました。`,
           });
+          if (type === "CLOCK_IN") {
+            setTimeout(
+              () =>
+                toast("今日のニュースは読みましたか？", {
+                  duration: 5000,
+                  icon: "📰",
+                }),
+              800,
+            );
+          }
           onSuccess();
           router.refresh();
         })

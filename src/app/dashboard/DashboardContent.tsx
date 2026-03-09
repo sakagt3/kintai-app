@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * ダッシュボードメイン: 勤怠取得・打刻パネル・今日は何の日・直近7日履歴・休暇申請タブを表示する。
- * API 失敗時は Sonner でトースト表示。
+ * ダッシュボードメイン: 勤怠取得・打刻パネル・インテリジェントバナー・直近7日履歴を表示する。
+ * 設定（今日は何の日・AIニュースのON/OFF・表示モード）はAPIから取得し、バナーに反映する。
  */
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { PunchPanel } from "./PunchPanel";
-import { TodaysSpecialDay } from "./TodaysSpecialDay";
+import { IntelligentBanner } from "./IntelligentBanner";
+import type { BannerSettings } from "./IntelligentBanner";
 import { FileText, Calendar } from "lucide-react";
 
 type TodayRecord = {
@@ -89,9 +90,32 @@ function calcActualWorkMinutes(
   return actual > 0 ? actual : null;
 }
 
+const DEFAULT_BANNER_SETTINGS: BannerSettings = {
+  showSpecialDay: true,
+  showAiNews: true,
+  displayMode: "standard",
+};
+
 export function DashboardContent() {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bannerSettings, setBannerSettings] =
+    useState<BannerSettings>(DEFAULT_BANNER_SETTINGS);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.settings) {
+          setBannerSettings({
+            showSpecialDay: json.settings.showSpecialDay ?? true,
+            showAiNews: json.settings.showAiNews ?? true,
+            displayMode: json.settings.displayMode ?? "standard",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchAttendance = useCallback(async () => {
     try {
@@ -151,7 +175,7 @@ export function DashboardContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <TodaysSpecialDay />
+      <IntelligentBanner settings={bannerSettings} />
       {status && (
         <div className="flex items-center justify-center">
           <span
