@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations";
 
 /**
- * 新規登録API: Zodでバリデーションし、ユーザーを1件作成する
+ * 新規登録API: バリデーション・重複チェック・パスワードハッシュ化のうえでユーザーを1件作成する
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -24,8 +25,11 @@ export async function POST(request: Request) {
   }
 
   const { name, email, password } = parsed.data;
+  const emailLower = email.trim().toLowerCase();
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({
+    where: { email: emailLower },
+  });
   if (existing) {
     return NextResponse.json(
       { error: "このメールアドレスは既に登録されています。" },
@@ -33,17 +37,19 @@ export async function POST(request: Request) {
     );
   }
 
+  const hashedPassword = hashSync(password, 10);
+
   try {
     await prisma.user.create({
       data: {
-        email,
+        email: emailLower,
         name: name?.trim() || null,
-        password,
+        password: hashedPassword,
         role: "member",
       },
     });
   } catch (e) {
-    console.error(e);
+    console.error("Register create failed:", e);
     return NextResponse.json(
       { error: "登録に失敗しました。しばらく経ってからお試しください。" },
       { status: 500 },

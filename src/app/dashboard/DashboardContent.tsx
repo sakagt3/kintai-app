@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * HabitLogic ダッシュボード: 打刻固定、3カード（クイズ・ニュース・今日は何の日）をドラッグで並び替え。
+ * Habit Logic ダッシュボード: 打刻固定、3カード（クイズ・ニュース・今日は何の日）をドラッグで並び替え。
  */
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
@@ -150,19 +150,19 @@ function SortableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-xl border border-gray-200/90 bg-white shadow-sm ${isDragging ? "z-50 opacity-90" : ""}`}
+      className={`rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(30,41,59,0.08)] ${isDragging ? "z-50 opacity-90 shadow-lg" : ""} dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)]`}
     >
-      <div className="flex items-center border-b border-gray-100 px-4 py-2">
+      <div className="flex items-center border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
         <button
           type="button"
-          className="touch-none cursor-grab rounded p-1 text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
+          className="touch-none cursor-grab rounded p-1 text-slate-400 hover:bg-slate-100 active:cursor-grabbing dark:hover:bg-slate-800"
           aria-label="並び替え"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
         </button>
-        <h2 className="ml-2 text-sm font-semibold text-gray-800">{title}</h2>
+        <h2 className="ml-2 text-sm font-semibold text-[#1E293B] dark:text-slate-200">{title}</h2>
       </div>
       <div className="p-4">{children}</div>
     </div>
@@ -360,11 +360,11 @@ export function DashboardContent() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex flex-1 flex-col gap-6 p-6">
       {/* 最上部: 打刻固定・余白詰め */}
-      <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-4 py-2">
-          <h2 className="text-sm font-semibold text-gray-800">打刻</h2>
+      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+        <div className="border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
+          <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">打刻</h2>
         </div>
         <div className="p-4">
           {status && (
@@ -396,10 +396,10 @@ export function DashboardContent() {
       {!hasPlan && (
         <Link
           href="/dashboard/settings"
-          className="flex items-center justify-center gap-3 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/80 py-8 text-emerald-800 transition hover:border-emerald-400 hover:bg-emerald-100/80 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+          className="flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#1E293B]/25 bg-slate-50/90 py-10 text-[#1E293B] transition hover:border-[#1E293B]/40 hover:bg-slate-100/90 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-200 dark:hover:bg-slate-800/80"
         >
-          <PlusCircle className="h-8 w-8 shrink-0" />
-          <span className="text-lg font-semibold">自分だけの学習プランを作成する</span>
+          <PlusCircle className="h-7 w-7 shrink-0 opacity-80" />
+          <span className="text-lg font-semibold">＋ 自分だけの学習プランを作成する</span>
         </Link>
       )}
 
@@ -426,9 +426,9 @@ export function DashboardContent() {
       </DndContext>
 
       {hasPlan && showAppliedPlan && appliedPlanSummary && (
-        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 shadow-sm">
-          <p className="text-xs font-semibold text-emerald-800">現在の学習プラン</p>
-          <p className="mt-1 text-sm text-emerald-900/90">
+        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:bg-slate-800/50">
+          <p className="text-xs font-semibold text-[#1E293B] dark:text-slate-300">現在の学習プラン</p>
+          <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
             {appliedPlanSummary.slice(0, 120)}
             {appliedPlanSummary.length > 120 ? "…" : ""}
           </p>
@@ -436,9 +436,9 @@ export function DashboardContent() {
       )}
 
       {/* 勤怠・履歴 */}
-      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <FileText className="h-4 w-4 text-emerald-600" />
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_4px_20px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight text-[#1E293B] dark:text-slate-200">
+          <FileText className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
           勤怠状況（今日）
         </h2>
         <p className="mb-3 text-xs font-medium text-gray-500">
@@ -476,10 +476,10 @@ export function DashboardContent() {
 
       <section
         id="history"
-        className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+        className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_4px_20px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
       >
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <Calendar className="h-4 w-4 text-emerald-600" />
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight text-[#1E293B] dark:text-slate-200">
+          <Calendar className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
           打刻履歴（直近1週間）
         </h2>
         <div className="overflow-hidden rounded-lg border border-gray-200">

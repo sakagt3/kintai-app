@@ -18,11 +18,11 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   return (
-    <div className="flex min-h-screen bg-[#f5f6f7]">
-      <aside className="fixed inset-y-0 left-0 z-30 w-56 border-r border-[#1e3a5f]/20 bg-[#1e3a5f] text-white">
+    <div className="flex min-h-screen bg-slate-100 dark:bg-[#0f172a]">
+      <aside className="fixed inset-y-0 left-0 z-30 w-56 border-r border-slate-700/50 bg-[#1E293B] text-white">
         <div className="flex h-full flex-col">
           <div className="border-b border-white/10 px-4 py-5">
-            <h1 className="text-lg font-bold tracking-tight">HabitLogic</h1>
+            <h1 className="text-lg font-bold tracking-tight">Habit Logic</h1>
             <p className="mt-1 truncate text-xs text-white/70">
               {session.user?.name ?? session.user?.email}
             </p>

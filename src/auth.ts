@@ -3,7 +3,12 @@
  */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { compareSync } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+
+function isBcryptHash(str: string): boolean {
+  return /^\$2[aby]?\$\d+\$/.test(str);
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -11,11 +16,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const email = (credentials.email as string).trim().toLowerCase();
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
         });
 
-        if (user && user.password === (credentials.password as string)) {
+        if (!user) return null;
+
+        const plainPassword = credentials.password as string;
+        const matches =
+          isBcryptHash(user.password)
+            ? compareSync(plainPassword, user.password)
+            : user.password === plainPassword;
+
+        if (matches) {
           return { id: user.id, email: user.email, name: user.name };
         }
         return null;
