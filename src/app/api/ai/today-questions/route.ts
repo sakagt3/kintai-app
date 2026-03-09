@@ -1,0 +1,184 @@
+/**
+ * 今日のN問を取得。復習（忘却曲線）分を混ぜ、残りをLLMで新規生成。
+ * プロンプトに「最新トレンド」「過去問との被りを避ける」を組み込み。
+ */
+import { NextResponse } from "next/server";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+
+const LEVEL_GUIDE: Record<string, string> = {
+  beginner: "初心者向け：平易な言葉、短い文。",
+  intermediate: "中級者向け：基本的な用語可。",
+  advanced: "上級者向け：専門用語と背景に触れる。",
+  pro: "プロ向け：業界標準用語で簡潔に。",
+};
+
+type QuizItem = {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  isReview?: boolean;
+};
+
+function parseReviewSnapshot(snapshot: string | null): QuizItem | null {
+  if (!snapshot) return null;
+  try {
+    const o = JSON.parse(snapshot) as {
+      question?: string;
+      options?: string[];
+      correctIndex?: number;
+      explanation?: string;
+    };
+    if (!o?.question || !Array.isArray(o.options) || o.options.length < 4)
+      return null;
+    const id = `review-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    return {
+      id,
+      question: String(o.question),
+      options: o.options.slice(0, 4),
+      correctIndex: Math.min(3, Math.max(0, Number(o.correctIndex) ?? 0)),
+      explanation: String(o.explanation ?? ""),
+      isReview: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  const userId = session.user.id;
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId },
+  });
+
+  const goal = settings?.customLearningGoal?.trim() ?? "";
+  const planSummary = settings?.appliedPlanSummary?.trim() ?? "";
+  const level =
+    settings?.learningLevel && ["beginner", "intermediate", "advanced", "pro"].includes(settings.learningLevel)
+      ? settings.learningLevel
+      : "intermediate";
+  const dailyCount = Math.min(10, Math.max(1, settings?.dailyQuizCount ?? 5));
+
+  const questions: QuizItem[] = [];
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const reviewCandidates = await prisma.quizAttempt.findMany({
+    where: {
+      userId,
+      questionSnapshot: { not: null },
+      nextReviewAt: { lte: new Date(`${today}T23:59:59Z`) },
+    },
+    orderBy: { nextReviewAt: "asc" },
+    take: Math.min(2, Math.max(0, Math.floor(dailyCount / 2))),
+  });
+
+  const usedReviewIds: string[] = [];
+  for (const r of reviewCandidates) {
+    const item = parseReviewSnapshot(r.questionSnapshot);
+    if (item) {
+      item.id = `review-${r.id}`;
+      questions.push(item);
+      usedReviewIds.push(r.id);
+    }
+  }
+  if (usedReviewIds.length > 0) {
+    const nextShow = new Date();
+    nextShow.setFullYear(nextShow.getFullYear() + 1);
+    await prisma.quizAttempt.updateMany({
+      where: { id: { in: usedReviewIds } },
+      data: { nextReviewAt: nextShow },
+    });
+  }
+
+  const needNew = dailyCount - questions.length;
+  const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
+
+  if (needNew > 0 && (goal || planSummary)) {
+    const prompt = `あなたは学習アシスタントです。以下の指針に基づき、${needNew}問の4択クイズを生成してください。
+【指針】${planSummary || goal || "ビジネス教養"}
+【レベル】${levelGuide}
+【ルール】最新のトレンドを1問以上含める。過去の典型的な出題と被りすぎないよう、角度を変えた問題にすること。毎日違う問題になるよう多様なトピックから選ぶこと。
+【出力】JSON配列のみ。説明は不要。形式: [{"question":"問題文","options":["Aの選択肢","B","C","D"],"correctIndex":0,"explanation":"解説"}] correctIndexは0〜3の整数。optionsは必ず4つ。`;
+
+    try {
+      if (process.env.OPENAI_API_KEY) {
+        const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const { text } = await generateText({
+          model: openai("gpt-4o-mini"),
+          prompt,
+          maxOutputTokens: 2000,
+        });
+        const trimmed = text.replace(/^[\s\S]*?(\[[\s\S]*\])[\s\S]*$/, "$1").trim();
+        const arr = JSON.parse(trimmed) as Array<{
+          question?: string;
+          options?: string[];
+          correctIndex?: number;
+          explanation?: string;
+        }>;
+        const list = Array.isArray(arr) ? arr : [];
+        for (let i = 0; i < Math.min(needNew, list.length); i++) {
+          const x = list[i];
+          if (x?.question && Array.isArray(x.options) && x.options.length >= 4) {
+            questions.push({
+              id: `new-${Date.now()}-${i}`,
+              question: String(x.question),
+              options: x.options.slice(0, 4),
+              correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
+              explanation: String(x.explanation ?? ""),
+              isReview: false,
+            });
+          }
+        }
+      } else {
+        const mockQuestions: QuizItem[] = [
+          {
+            id: "new-1",
+            question: "RAGの「R」は何の略ですか？",
+            options: ["Retrieval", "Real-time", "Random", "Resource"],
+            correctIndex: 0,
+            explanation: "RAGは Retrieval-Augmented Generation の略です。",
+            isReview: false,
+          },
+          {
+            id: "new-2",
+            question: "LLMで「Hallucination」とは？",
+            options: ["幻覚的な出力", "高速応答", "多言語対応", "暗号化"],
+            correctIndex: 0,
+            explanation: "事実に基づかない内容をそれらしく生成する現象です。",
+            isReview: false,
+          },
+        ];
+        for (let i = 0; i < Math.min(needNew, mockQuestions.length); i++) {
+          questions.push({ ...mockQuestions[i], id: `new-${Date.now()}-${i}` });
+        }
+      }
+    } catch (e) {
+      console.error("today-questions generate:", e);
+    }
+  }
+
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const recent = await prisma.quizAttempt.findMany({
+    where: { userId, answeredAt: { gte: sevenDaysAgo } },
+    select: { correct: true },
+  });
+  const total = recent.length;
+  const correctCount = recent.filter((r) => r.correct).length;
+  const retentionRate = total > 0 ? Math.round((correctCount / total) * 100) : null;
+
+  return NextResponse.json({
+    questions,
+    retentionRate,
+  });
+}

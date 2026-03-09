@@ -465,10 +465,10 @@ export default function SettingsPage() {
 
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">
-            自由記述で学びたいこと（例: TOEIC 800点を目指すための単語）
+            学びたいこと（例: ビジネス英語、毎日5問）
           </label>
-          <p className="mb-2 text-xs text-gray-500">
-            ※生成AIを利用する場合、『毎日10問』のように問題数も指定可能です。指定しない場合は1日の標準問題数（デフォルト5問）が適用されます。
+          <p className="mb-1.5 text-[11px] text-gray-500">
+            問題数は「毎日〇問」で指定可能。未指定時は基本設定の出題数を使用。
           </p>
           <div className="flex flex-wrap items-start gap-2">
             <textarea
@@ -476,9 +476,9 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
               }
-              placeholder="例: TOEIC 800点、毎日10問"
-              rows={2}
-              className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
+              placeholder="例: AI営業用語、毎日5問"
+              rows={1}
+              className="w-full max-w-md rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#1E293B] focus:outline-none focus:ring-1 focus:ring-[#1E293B] dark:border-slate-600 dark:bg-slate-800 dark:text-white"
             />
             <div className="flex shrink-0 flex-col gap-2">
               <button

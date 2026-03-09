@@ -1,10 +1,26 @@
 "use client";
 
 /**
- * Habit Logic ダッシュボード: 固定順
- * ①勤怠 ②自分だけの学習 ③今日は何の日 ④今日のAI用語 ⑤本日のヘッドライン（1件）
+ * Habit Logic ダッシュボード: ①勤怠固定、以降はD&Dで並び替え可能（学習・今日は何の日・AI用語・ヘッドライン）
  */
 import { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { PunchPanel } from "./PunchPanel";
 import { TodayAiContent } from "./TodayAiContent";
@@ -21,7 +37,11 @@ import {
   ExternalLink,
   PlusCircle,
   BookOpen,
+  GripVertical,
 } from "lucide-react";
+
+const CARD_ORDER_KEYS = ["learning", "specialDay", "aiTerm", "headline"] as const;
+type CardId = (typeof CARD_ORDER_KEYS)[number];
 
 type TodayRecord = {
   date: string;
@@ -124,6 +144,52 @@ function Card({
   );
 }
 
+function SortableCard({
+  id,
+  title,
+  children,
+}: {
+  id: CardId;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`${CARD_CLASS} ${isDragging ? "z-50 opacity-90 shadow-lg" : ""}`}
+    >
+      <div className="flex items-center border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
+        <button
+          type="button"
+          className="touch-none cursor-grab rounded p-1 text-slate-400 hover:bg-slate-100 active:cursor-grabbing dark:hover:bg-slate-800"
+          aria-label="並び替え"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <h2 className="ml-2 text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+          {title}
+        </h2>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
 /** 本日のヘッドライン（最重要ニュース1件のみ） */
 function HeadlineCard() {
   const news = useMemo(getTodaysAiNews, []);
@@ -141,7 +207,7 @@ function HeadlineCard() {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {news.source && (
               <span className="text-xs text-slate-500 dark:text-slate-500">
-                {news.source}
+                出典：{news.source}
               </span>
             )}
             {news.url && (
@@ -213,6 +279,7 @@ export function DashboardContent() {
   const [showAiTerm, setShowAiTerm] = useState(true);
   const [preferredTopicIds, setPreferredTopicIds] = useState<string[]>([]);
   const [customLearningGoal, setCustomLearningGoal] = useState("");
+  const [cardOrder, setCardOrder] = useState<CardId[]>([...CARD_ORDER_KEYS]);
 
   const fetchSettings = useCallback(() => {
     fetch("/api/settings")
@@ -231,9 +298,42 @@ export function DashboardContent() {
               : [],
           );
           setCustomLearningGoal(json.settings.customLearningGoal ?? "");
+          const order = json.settings.dashboardCardOrder;
+          if (Array.isArray(order) && order.length > 0) {
+            const valid = order.filter((k) =>
+              CARD_ORDER_KEYS.includes(k as CardId)
+            ) as CardId[];
+            const rest = CARD_ORDER_KEYS.filter((k) => !valid.includes(k));
+            setCardOrder(valid.length > 0 ? [...valid, ...rest] : [...CARD_ORDER_KEYS]);
+          }
         }
       })
       .catch(() => {});
+  }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setCardOrder((prev) => {
+        const a = prev.indexOf(active.id as CardId);
+        const b = prev.indexOf(over.id as CardId);
+        if (a === -1 || b === -1) return prev;
+        const next = arrayMove(prev, a, b);
+        fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dashboardCardOrder: next }),
+        }).then((res) => {
+          if (res.ok) toast.success("並び順を保存しました");
+        });
+        return next;
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -322,6 +422,50 @@ export function DashboardContent() {
     return "今日のカスタムクイズ";
   })();
 
+  const visibleOrder = useMemo(() => {
+    return cardOrder.filter((id) => {
+      if (id === "learning") return true;
+      if (id === "specialDay") return showSpecialDay;
+      if (id === "aiTerm") return showAiTerm;
+      if (id === "headline") return showAiNews;
+      return false;
+    });
+  }, [cardOrder, showSpecialDay, showAiTerm, showAiNews]);
+
+  const cardContent: Record<CardId, { title: string; content: React.ReactNode }> = useMemo(
+    () => ({
+      learning: {
+        title: hasPlan ? learningCardTitle : "学習プラン",
+        content: !hasPlan ? (
+          <Link
+            href="/dashboard/settings"
+            className="flex items-center justify-center gap-3 py-10 text-[#1E293B] transition hover:opacity-90 dark:text-slate-200"
+          >
+            <PlusCircle className="h-7 w-7 shrink-0 opacity-80" />
+            <span className="text-lg font-semibold">
+              ＋ 自分だけの学習プランを作成する
+            </span>
+          </Link>
+        ) : (
+          <TodayAiContent />
+        ),
+      },
+      specialDay: {
+        title: "今日は何の日",
+        content: <SpecialDayCard />,
+      },
+      aiTerm: {
+        title: "今日のAI用語",
+        content: <AiTermCard />,
+      },
+      headline: {
+        title: "本日のヘッドライン（最重要ニュース）",
+        content: <HeadlineCard />,
+      },
+    }),
+    [hasPlan, learningCardTitle]
+  );
+
   return (
     <div className="flex flex-1 flex-col gap-8 p-6 md:p-8">
       {/* ① 勤怠パネル（固定） */}
@@ -359,43 +503,27 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* ② 自分だけのAI学習プラン or CTA */}
-      {!hasPlan ? (
-        <Link
-          href="/dashboard/settings"
-          className="flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#1E293B]/20 bg-slate-50/90 py-12 text-[#1E293B] transition hover:border-[#1E293B]/35 hover:bg-slate-100/90 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-200 dark:hover:bg-slate-800/80"
+      {/* 並び替え可能カード（ドラッグハンドル付き） */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={visibleOrder}
+          strategy={verticalListSortingStrategy}
         >
-          <PlusCircle className="h-7 w-7 shrink-0 opacity-80" />
-          <span className="text-lg font-semibold">
-            ＋ 自分だけの学習プランを作成する
-          </span>
-        </Link>
-      ) : (
-        <Card title={learningCardTitle}>
-          <TodayAiContent />
-        </Card>
-      )}
-
-      {/* ③ 今日は何の日（設定で表示時のみ） */}
-      {showSpecialDay && (
-        <Card title="今日は何の日">
-          <SpecialDayCard />
-        </Card>
-      )}
-
-      {/* ④ 今日のAI用語（設定で表示時のみ） */}
-      {showAiTerm && (
-        <Card title="今日のAI用語">
-          <AiTermCard />
-        </Card>
-      )}
-
-      {/* ⑤ 本日のヘッドライン（最重要ニュース1件・設定で表示時のみ） */}
-      {showAiNews && (
-        <Card title="本日のヘッドライン（最重要ニュース）">
-          <HeadlineCard />
-        </Card>
-      )}
+          {visibleOrder.map((id) => (
+            <SortableCard
+              key={id}
+              id={id}
+              title={cardContent[id].title}
+            >
+              {cardContent[id].content}
+            </SortableCard>
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {hasPlan && showAppliedPlan && appliedPlanSummary && (
         <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-5 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:bg-slate-800/50">

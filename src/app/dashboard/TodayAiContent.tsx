@@ -1,167 +1,182 @@
 "use client";
 
 /**
- * 保存された学習プロンプトに基づく「今日の1問/1トピック」を表示。
- * ダッシュボードで常に表示し、未設定時は設定を促すメッセージを表示。
+ * 今日のN問をウィザード形式で表示。1問ずつ回答→正解・解説→次へ。忘却曲線の復習混在・定着度表示。
  */
-import { useEffect, useState } from "react";
-import { Sparkles, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Sparkles, Loader2, CheckCircle, XCircle, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
-type TodayContent =
-  | { hasContent: false; message?: string }
-  | {
-      hasContent: true;
-      type: "quiz";
-      question: string;
-      options: string[];
-      correctIndex: number;
-      explanation: string;
-    }
-  | {
-      hasContent: true;
-      type: "topic";
-      title: string;
-      body: string;
-    };
+type QuizItem = {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  isReview?: boolean;
+};
 
 export function TodayAiContent() {
-  const [content, setContent] = useState<TodayContent | null>(null);
+  const [questions, setQuestions] = useState<QuizItem[]>([]);
+  const [retentionRate, setRetentionRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [answered, setAnswered] = useState<boolean | null>(null);
+  const [index, setIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [showResult, setShowResult] = useState(false);
+  const [results, setResults] = useState<boolean[]>([]);
+  const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/ai/today-content")
+  const fetchQuestions = useCallback(() => {
+    setLoading(true);
+    fetch("/api/ai/today-questions")
       .then((res) => res.json().catch(() => ({})))
       .then((data) => {
-        if (data.hasContent && data.type) {
-          setContent({
-            hasContent: true,
-            type: data.type,
-            ...(data.type === "quiz"
-              ? {
-                  question: data.question,
-                  options: data.options ?? [],
-                  correctIndex: Math.min(3, Math.max(0, Number(data.correctIndex) ?? 0)),
-                  explanation: data.explanation ?? "",
-                }
-              : { title: data.title ?? "", body: data.body ?? "" }),
-          });
-        } else {
-          setContent({
-            hasContent: false,
-            message: data.message ?? "学習テーマを設定すると、ここに毎日違う問題が表示されます。",
-          });
-        }
+        setQuestions(Array.isArray(data.questions) ? data.questions : []);
+        setRetentionRate(
+          typeof data.retentionRate === "number" ? data.retentionRate : null
+        );
+        setIndex(0);
+        setSelectedIndex(null);
+        setShowResult(false);
+        setResults([]);
       })
-      .catch(() =>
-        setContent({
-          hasContent: false,
-          message: "読み込みに失敗しました。",
-        })
-      )
+      .catch(() => setQuestions([]))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    fetchQuestions();
+  }, [fetchQuestions]);
+
+  const current = questions[index];
+  const correct =
+    selectedIndex !== null && current && selectedIndex === current.correctIndex;
+
+  const saveAttempt = useCallback(
+    (q: QuizItem, correctAnswer: boolean) => {
+      const snapshot = JSON.stringify({
+        question: q.question,
+        options: q.options,
+        correctIndex: q.correctIndex,
+        explanation: q.explanation,
+      });
+      setSending(true);
+      fetch("/api/quiz/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId: q.id,
+          correct: correctAnswer,
+          questionSnapshot: snapshot,
+        }),
+      })
+        .then((res) => {
+          if (!res.ok) toast.error("記録の保存に失敗しました");
+        })
+        .finally(() => setSending(false));
+    },
+    []
+  );
+
+  const handleAnswer = (choiceIndex: number) => {
+    if (!current || selectedIndex !== null) return;
+    setSelectedIndex(choiceIndex);
+    setShowResult(true);
+    const correctAnswer = choiceIndex === current.correctIndex;
+    setResults((prev) => [...prev, correctAnswer]);
+    saveAttempt(current, correctAnswer);
+  };
+
+  const handleNext = () => {
+    if (index + 1 >= questions.length) return;
+    setIndex((i) => i + 1);
+    setSelectedIndex(null);
+    setShowResult(false);
+  };
+
   if (loading) {
     return (
-      <section className="rounded-xl border border-violet-200/80 bg-violet-50/30 p-6">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <Sparkles className="h-4 w-4 text-violet-600" />
-          AI生成問題
-        </h2>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          今日の1問を生成中…
+          今日の問題を生成中…
         </div>
-      </section>
+      </div>
     );
   }
 
-  if (!content) return null;
-
-  if (!content.hasContent) {
+  if (questions.length === 0) {
     return (
-      <section className="rounded-xl border border-violet-200/80 bg-violet-50/30 p-6">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <Sparkles className="h-4 w-4 text-violet-600" />
-          AI生成問題
-        </h2>
-        <p className="mb-4 text-sm text-gray-600">{content.message}</p>
+      <div className="space-y-3">
+        <p className="text-sm text-slate-600">
+          学習テーマを設定すると、ここに毎日新しい問題が表示されます。忘却曲線に基づき、復習も自動で混ざります。
+        </p>
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E293B] px-3 py-2 text-xs font-medium text-white hover:bg-slate-700"
         >
           <Sparkles className="h-3.5 w-3.5" />
           設定で学習テーマを決める
         </Link>
-      </section>
+      </div>
     );
   }
 
-  if (content.type === "topic") {
+  if (index >= questions.length) {
+    const correctCount = results.filter(Boolean).length;
     return (
-      <section className="rounded-xl border border-violet-200/80 bg-violet-50/30 p-6">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-          <Sparkles className="h-4 w-4 text-violet-600" />
-          AI生成問題
-        </h2>
-        <p className="mb-1 text-xs font-medium text-violet-800">今日のトピック</p>
-        <h3 className="mb-2 font-medium text-gray-900">{content.title}</h3>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-          {content.body}
-        </p>
-      </section>
-    );
-  }
-
-  const correct = selectedIndex !== null && selectedIndex === content.correctIndex;
-  const wrong = selectedIndex !== null && selectedIndex !== content.correctIndex;
-
-  return (
-    <section className="rounded-xl border border-violet-200/80 bg-violet-50/30 p-6">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
-        <Sparkles className="h-4 w-4 text-violet-600" />
-        AI生成問題
-      </h2>
-      <p className="mb-3 text-xs font-medium text-violet-800">今日の1問（あなたのテーマに合わせて生成）</p>
-
-      {answered !== null ? (
-        <div className="space-y-3">
-          <div
-            className={`flex items-center gap-2 rounded-lg px-4 py-3 ${
-              correct ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-            }`}
-          >
-            {correct ? (
-              <CheckCircle className="h-5 w-5 shrink-0" />
-            ) : (
-              <XCircle className="h-5 w-5 shrink-0" />
-            )}
-            <span className="font-medium">
-              {correct ? "正解です！" : "不正解"}
-            </span>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-700">
-            {content.explanation}
+      <div className="space-y-4">
+        <div className="rounded-lg bg-emerald-50 px-4 py-3 text-center dark:bg-emerald-950/30">
+          <p className="font-medium text-emerald-800 dark:text-emerald-200">
+            本日の問題が完了しました
+          </p>
+          <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+            {correctCount} / {questions.length} 問正解
           </p>
         </div>
-      ) : (
+        {(retentionRate !== null || results.length > 0) && (
+          <p className="text-center text-xs text-slate-500">
+            記憶定着度（直近）：{retentionRate !== null ? `${retentionRate}%` : "—"}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+        <span>
+          問 {index + 1} / {questions.length}
+          {current?.isReview && (
+            <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+              復習
+            </span>
+          )}
+        </span>
+        {retentionRate !== null && (
+          <span className="font-medium text-[#1E293B] dark:text-slate-300">
+            記憶定着度：{retentionRate}%
+          </span>
+        )}
+      </div>
+
+      {!showResult ? (
         <>
-          <p className="mb-3 font-medium text-gray-900">{content.question}</p>
+          <p className="font-medium text-[#1E293B] dark:text-slate-200">
+            {current.question}
+          </p>
           <div className="grid gap-2">
-            {content.options.map((opt, i) => (
+            {current.options.map((opt, i) => (
               <button
                 key={i}
                 type="button"
-                onClick={() => {
-                  setSelectedIndex(i);
-                  setAnswered(i === content.correctIndex);
-                }}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left text-sm hover:border-violet-300 hover:bg-violet-50/50"
+                onClick={() => handleAnswer(i)}
+                disabled={sending}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm transition hover:border-[#1E293B]/30 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/50 dark:hover:bg-slate-800"
               >
-                <span className="w-4 shrink-0 font-mono text-gray-500">
+                <span className="w-5 shrink-0 font-mono text-slate-500">
                   {["A", "B", "C", "D"][i]}
                 </span>
                 {opt}
@@ -169,7 +184,54 @@ export function TodayAiContent() {
             ))}
           </div>
         </>
+      ) : (
+        <div className="space-y-3">
+          <div
+            className={`flex items-center gap-2 rounded-xl px-4 py-3 ${
+              correct
+                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                : "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-200"
+            }`}
+          >
+            {correct ? (
+              <CheckCircle className="h-5 w-5 shrink-0" />
+            ) : (
+              <XCircle className="h-5 w-5 shrink-0" />
+            )}
+            <span className="font-medium">{correct ? "正解です！" : "不正解"}</span>
+          </div>
+          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+            {current.explanation}
+          </p>
+          {index + 1 < questions.length ? (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#1E293B]/30 bg-[#1E293B] py-2.5 text-sm font-medium text-white hover:bg-slate-800 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600"
+            >
+              次の問題へ
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setIndex(index + 1);
+                setSelectedIndex(null);
+                setShowResult(false);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#1E293B]/30 bg-[#1E293B] py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              完了を見る
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       )}
-    </section>
+
+      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+        ※忘却曲線に基づき、最適なタイミングで復習を出題しています。
+      </p>
+    </div>
   );
 }

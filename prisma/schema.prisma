@@ -69,14 +69,15 @@ model ActivityLog {
 
 /// 忘却曲線に基づくクイズ回答履歴（復習タイミング計算に使用）
 model QuizAttempt {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  questionId   String
-  correct      Boolean
-  answeredAt   DateTime @default(now())
-  nextReviewAt DateTime? // エビングハウスに基づく次回出題日
-  createdAt    DateTime @default(now())
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  questionId      String
+  correct         Boolean
+  answeredAt      DateTime  @default(now())
+  nextReviewAt    DateTime? // エビングハウスに基づく次回出題日
+  questionSnapshot String?  // JSON: { question, options, correctIndex, explanation } 復習出題用
+  createdAt       DateTime  @default(now())
 }
 
 model Attendance {
