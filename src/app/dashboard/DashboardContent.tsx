@@ -184,47 +184,63 @@ export function DashboardContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <IntelligentBanner settings={bannerSettings} />
+      {/* 上部: 今日の学習（左）と打刻（右）を横並び */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-4 py-2">
+            <h2 className="text-sm font-semibold text-gray-800">今日のニュース・学習</h2>
+          </div>
+          <div className="p-4">
+            <IntelligentBanner settings={bannerSettings} />
+            <div className="mt-4">
+              <TodayAiContent />
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-4">
+          {status && (
+            <div className="flex justify-center">
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
+                  status === "勤務中"
+                    ? "bg-emerald-500/15 text-emerald-700"
+                    : status === "休憩中"
+                      ? "bg-amber-500/15 text-amber-700"
+                      : "bg-gray-200 text-gray-700"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    status === "退勤済み" ? "bg-gray-400" : "animate-pulse bg-current"
+                  }`}
+                  aria-hidden
+                />
+                {status}
+              </span>
+            </div>
+          )}
+          <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-4 py-2">
+              <h2 className="text-sm font-semibold text-gray-800">打刻</h2>
+            </div>
+            <div className="p-4">
+              <PunchPanel onSuccess={fetchAttendance} />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {appliedPlanSummary && (
-        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3">
-          <p className="text-xs font-semibold text-emerald-800">
-            現在の学習プラン
-          </p>
+        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 shadow-sm">
+          <p className="text-xs font-semibold text-emerald-800">現在の学習プラン</p>
           <p className="mt-1 text-sm text-emerald-900/90">
             {appliedPlanSummary.slice(0, 120)}
             {appliedPlanSummary.length > 120 ? "…" : ""}
           </p>
         </div>
       )}
-      {status && (
-        <div className="flex items-center justify-center">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
-              status === "勤務中"
-                ? "bg-emerald-500/15 text-emerald-700"
-                : status === "休憩中"
-                  ? "bg-amber-500/15 text-amber-700"
-                  : "bg-gray-200 text-gray-700"
-            }`}
-          >
-            <span
-              className={`h-2 w-2 rounded-full ${
-                status === "退勤済み"
-                  ? "bg-gray-400"
-                  : "animate-pulse bg-current"
-              }`}
-              aria-hidden
-            />
-            {status}
-          </span>
-        </div>
-      )}
-
-      <PunchPanel onSuccess={fetchAttendance} />
 
       <ForgettingCurveIndicator />
-
-      <TodayAiContent />
 
       <QuizPanel />
 

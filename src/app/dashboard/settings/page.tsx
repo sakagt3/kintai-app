@@ -163,11 +163,11 @@ export default function SettingsPage() {
     router.refresh();
   };
 
-  const handleStartLearning = async () => {
+  const handlePlanCreate = async () => {
     setMasterPlanLoading(true);
     setDiagnosisPreviewText("");
     try {
-      const res = await fetch("/api/ai/master-plan", {
+      const res = await fetch("/api/ai/plan-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -177,13 +177,11 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
-      const masterPlan = data.masterPlan ?? "";
-      const caption =
-        "今後はこの方針に基づき、毎日ランダムに多様な問題・トピックを生成して表示します。\n\n";
-      setDiagnosisPreviewText(caption + masterPlan);
-      toast.success("マスタープランを生成しました。下の「このプランを適用して開始する」で確定できます。");
+      const planText = data.planText ?? "";
+      setDiagnosisPreviewText(planText);
+      toast.success("プランを作成しました。下の「このプランを適用して開始する」で確定できます。");
     } catch {
-      toast.error("マスタープランの生成に失敗しました。");
+      toast.error("プランの生成に失敗しました。");
     } finally {
       setMasterPlanLoading(false);
     }
@@ -431,11 +429,11 @@ export default function SettingsPage() {
             <div className="flex shrink-0 flex-col gap-2">
               <button
                 type="button"
-                onClick={handleStartLearning}
+                onClick={handlePlanCreate}
                 disabled={masterPlanLoading}
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
               >
-                {masterPlanLoading ? "生成中…" : "この内容で学習を開始する"}
+                {masterPlanLoading ? "生成中…" : "この内容でプラン作成"}
               </button>
               <button
                 type="button"
@@ -447,7 +445,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            マスタープラン生成後、下のプレビューで「このプランを適用して開始する」を押すと、ダッシュボードで毎日その方針に沿った問題が表示されます。
+            プラン作成後、下のプレビューで「このプランを適用して開始する」を押すと、ダッシュボードで毎日その方針に沿った問題が表示されます。
           </p>
         </div>
 
@@ -468,6 +466,7 @@ export default function SettingsPage() {
             contentFocus={settings.contentFocus}
             appliedPlanSummary={settings.appliedPlanSummary}
             previewOverrideText={diagnosisPreviewText}
+            planLoading={masterPlanLoading}
             onApply={handleApply}
           />
         </div>

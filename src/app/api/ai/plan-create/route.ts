@@ -1,0 +1,102 @@
+/**
+ * 詳細プラン作成API。「この内容でプラン作成」1ボタンで、
+ * 背景説明・具体的な運用イメージ（5〜10件サンプル）・忘却曲線の一文を返す。
+ */
+import { NextResponse } from "next/server";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { auth } from "@/auth";
+
+const FORGETTING_CURVE_FOOTER =
+  "\n\n※このトピックは科学的根拠に基づいた忘却曲線アルゴリズムに登録され、最適なタイミングで復習が出題されます。";
+
+const LEVEL_GUIDE: Record<string, string> = {
+  beginner: "初心者向け：平易な言葉、短い文。専門用語は最小限。",
+  intermediate: "中級者向け：基本的な用語可。2〜3文で要点を。",
+  advanced: "上級者向け：専門用語と背景に触れる。",
+  pro: "プロ向け：業界標準用語で簡潔に。",
+};
+
+/** 自由記述から「〇問」を抽出。5〜10の範囲で返す。 */
+function parseSampleCount(goal: string): number {
+  const match = goal.match(/(\d+)\s*問/);
+  if (match) {
+    const n = parseInt(match[1], 10);
+    if (Number.isFinite(n) && n >= 1) return Math.min(10, Math.max(5, n));
+  }
+  return 5;
+}
+
+function buildPrompt(goal: string, level: string, sampleCount: number): string {
+  const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
+  return `あなたは学習コンシェルジュです。ユーザーの要望を聞き、納得感のある学習プランを1つ作成してください。
+
+【ユーザーの要望】
+${goal.trim() || "（未記入・汎用ビジネス教養として）"}
+
+【レベル】
+${levelGuide}
+
+【出力形式】以下の3部構成で必ず書いてください。見出しは「##」で始めること。
+
+## なぜこのプランがあなたに合っているか
+ユーザーの入力意図（例：出題数・テーマ・目標）を汲み取り、なぜその内容・ボリュームが学習に最適なのかを2〜4文で解説してください。「〇問」と書かれていればその理由にも触れる。
+
+## 今後このような問題をランダムに出題します
+具体的な出題サンプルを${sampleCount}件、番号付きで列挙してください。各1行で、問題文またはトピックのタイトル＋一言でよいです。例：「1. 〇〇とは何か（4択）」「2. △△の使い分け」など。ユーザーのテーマに沿った多様な例にすること。
+
+## 運用のポイント
+1〜2文で、毎日ランダムに出題する旨を簡潔に。`;
+}
+
+export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const goal = typeof body.goal === "string" ? body.goal.trim() : "";
+    const level =
+      typeof body.level === "string" &&
+      ["beginner", "intermediate", "advanced", "pro"].includes(body.level)
+        ? body.level
+        : "intermediate";
+
+    const sampleCount = parseSampleCount(goal);
+
+    if (!process.env.OPENAI_API_KEY) {
+      const mockPlan = `## なぜこのプランがあなたに合っているか
+「${goal || "ビジネス教養"}」に沿って、無理のないボリュームで毎日触れることで定着しやすくなります。${sampleCount}問程度なら隙間時間で続けられます。
+
+## 今後このような問題をランダムに出題します
+1. ビジネスメールの定型表現（4択）
+2. 敬語の使い分け
+3. 業界用語の意味
+4. 図表の読み取り
+5. 要約問題
+${sampleCount > 5 ? "6. 類義語の選択\n7. 文脈に合う語句\n8. 長文の要点\n9. 数字の読み取り\n10. 手順の並び替え\n" : ""}
+
+## 運用のポイント
+毎日ランダムに上記のような問題を出題します。続けることで自然に力がつきます。${FORGETTING_CURVE_FOOTER}`;
+      return NextResponse.json({ planText: mockPlan });
+    }
+
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: buildPrompt(goal, level, sampleCount),
+      maxOutputTokens: 1200,
+    });
+
+    const planText = text.trim() + FORGETTING_CURVE_FOOTER;
+    return NextResponse.json({ planText });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json(
+      { error: "プランの生成に失敗しました。" },
+      { status: 500 }
+    );
+  }
+}
