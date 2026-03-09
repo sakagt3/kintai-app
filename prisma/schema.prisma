@@ -9,22 +9,34 @@ datasource db {
 }
 
 model User {
-  id         String       @id @default(cuid())
-  email      String       @unique
-  name       String?
-  password   String
-  role       String       @default("member")
-  attendance Attendance[]
-  createdAt  DateTime     @default(now())
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String?
+  password      String
+  role          String        @default("member")
+  attendance    Attendance[]
+  leaveRequests LeaveRequest[]
+  createdAt     DateTime      @default(now())
 }
 
 model Attendance {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  date       String
+  clockIn    String?
+  clockOut   String?
+  breakStart String?
+  breakEnd   String?
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model LeaveRequest {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   date      String
-  clockIn   String?
-  clockOut  String?
-  note      String?
+  type      String
   createdAt DateTime @default(now())
 }

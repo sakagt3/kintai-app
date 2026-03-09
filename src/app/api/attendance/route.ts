@@ -38,7 +38,15 @@ export async function GET() {
     }),
   ])
   const historyByDate = Object.fromEntries(
-    historyRecords.map((r) => [r.date, { clockIn: r.clockIn, clockOut: r.clockOut }])
+    historyRecords.map((r) => [
+      r.date,
+      {
+        clockIn: r.clockIn,
+        clockOut: r.clockOut,
+        breakStart: r.breakStart,
+        breakEnd: r.breakEnd,
+      },
+    ])
   )
   return NextResponse.json({
     today: todayAttendance
@@ -46,8 +54,10 @@ export async function GET() {
           date: today,
           clockIn: todayAttendance.clockIn,
           clockOut: todayAttendance.clockOut,
+          breakStart: todayAttendance.breakStart,
+          breakEnd: todayAttendance.breakEnd,
         }
-      : { date: today, clockIn: null, clockOut: null },
+      : { date: today, clockIn: null, clockOut: null, breakStart: null, breakEnd: null },
     last7Dates,
     historyByDate,
   })
@@ -66,9 +76,10 @@ export async function POST(request: Request) {
       ? `${body.latitude},${body.longitude}`
       : null)
 
-    if (type !== "CLOCK_IN" && type !== "CLOCK_OUT") {
+    const validTypes = ["CLOCK_IN", "CLOCK_OUT", "BREAK_START", "BREAK_END"]
+    if (!validTypes.includes(type)) {
       return NextResponse.json(
-        { error: "打刻種別（CLOCK_IN / CLOCK_OUT）を指定してください。" },
+        { error: "打刻種別を指定してください。（CLOCK_IN / CLOCK_OUT / BREAK_START / BREAK_END）" },
         { status: 400 }
       )
     }
@@ -90,7 +101,7 @@ export async function POST(request: Request) {
           where: { id: existing.id },
           data: { clockIn: time, ...(location && { note: location }) },
         })
-      } else {
+      } else if (type === "CLOCK_OUT") {
         await prisma.attendance.update({
           where: { id: existing.id },
           data: {
@@ -98,15 +109,26 @@ export async function POST(request: Request) {
             note: location ? `${existing.note ?? ""}, ${location}`.trim() : existing.note,
           },
         })
+      } else if (type === "BREAK_START") {
+        await prisma.attendance.update({
+          where: { id: existing.id },
+          data: { breakStart: time },
+        })
+      } else {
+        await prisma.attendance.update({
+          where: { id: existing.id },
+          data: { breakEnd: time },
+        })
       }
     } else {
       await prisma.attendance.create({
         data: {
           userId,
           date,
-          ...(type === "CLOCK_IN"
-            ? { clockIn: time, note: location }
-            : { clockOut: time, note: location }),
+          ...(type === "CLOCK_IN" && { clockIn: time, note: location }),
+          ...(type === "CLOCK_OUT" && { clockOut: time, note: location }),
+          ...(type === "BREAK_START" && { breakStart: time }),
+          ...(type === "BREAK_END" && { breakEnd: time }),
         },
       })
     }

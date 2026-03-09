@@ -2,12 +2,27 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { PunchPanel } from "./PunchPanel"
-import { Clock, FileText, Calendar } from "lucide-react"
+import { FileText, Calendar } from "lucide-react"
+
+type TodayRecord = {
+  date: string
+  clockIn: string | null
+  clockOut: string | null
+  breakStart: string | null
+  breakEnd: string | null
+}
+
+type HistoryRecord = {
+  clockIn: string | null
+  clockOut: string | null
+  breakStart: string | null
+  breakEnd: string | null
+}
 
 type AttendanceData = {
-  today: { date: string; clockIn: string | null; clockOut: string | null }
+  today: TodayRecord
   last7Dates: string[]
-  historyByDate: Record<string, { clockIn: string | null; clockOut: string | null }>
+  historyByDate: Record<string, HistoryRecord>
 }
 
 function formatDisplayDate(dateStr: string) {
@@ -33,12 +48,33 @@ function formatDuration(minutes: number): string {
   return `${h}時間${m}分`
 }
 
-function calcWorkMinutes(clockIn: string | null, clockOut: string | null): number | null {
+function calcGrossMinutes(clockIn: string | null, clockOut: string | null): number | null {
   const inM = parseTimeToMinutes(clockIn)
   const outM = parseTimeToMinutes(clockOut)
   if (inM == null || outM == null) return null
   const diff = outM - inM
   return diff > 0 ? diff : null
+}
+
+function calcBreakMinutes(breakStart: string | null, breakEnd: string | null): number | null {
+  const s = parseTimeToMinutes(breakStart)
+  const e = parseTimeToMinutes(breakEnd)
+  if (s == null || e == null) return null
+  const diff = e - s
+  return diff > 0 ? diff : null
+}
+
+function calcActualWorkMinutes(
+  clockIn: string | null,
+  clockOut: string | null,
+  breakStart: string | null,
+  breakEnd: string | null
+): number | null {
+  const gross = calcGrossMinutes(clockIn, clockOut)
+  if (gross == null) return null
+  const breakM = calcBreakMinutes(breakStart, breakEnd) ?? 0
+  const actual = gross - breakM
+  return actual > 0 ? actual : null
 }
 
 export function DashboardContent() {
@@ -64,61 +100,85 @@ export function DashboardContent() {
 
   if (loading && !data) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-navy-600 border-t-transparent" />
+      <div className="flex flex-1 items-center justify-center p-10">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#1e3a5f] border-t-transparent" />
       </div>
     )
   }
 
-  const today = data?.today ?? { date: "", clockIn: null, clockOut: null }
+  const today = data?.today ?? { date: "", clockIn: null, clockOut: null, breakStart: null, breakEnd: null }
   const last7Dates = data?.last7Dates ?? []
   const historyByDate = data?.historyByDate ?? {}
-  const workMinutes = calcWorkMinutes(today.clockIn, today.clockOut)
-  const status = today.clockIn
+  const actualMinutes = calcActualWorkMinutes(today.clockIn, today.clockOut, today.breakStart, today.breakEnd)
+
+  const status: "勤務中" | "休憩中" | "退勤済み" | null = today.clockIn
     ? today.clockOut
       ? "退勤済み"
-      : "勤務中"
+      : today.breakStart && !today.breakEnd
+        ? "休憩中"
+        : "勤務中"
     : null
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
+      {status && (
+        <div className="flex items-center justify-center">
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
+              status === "勤務中"
+                ? "bg-emerald-500/15 text-emerald-700"
+                : status === "休憩中"
+                  ? "bg-amber-500/15 text-amber-700"
+                  : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                status === "退勤済み" ? "bg-gray-400" : "animate-pulse bg-current"
+              }`}
+              aria-hidden
+            />
+            {status}
+          </span>
+        </div>
+      )}
+
       <PunchPanel onSuccess={fetchAttendance} />
 
-      <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
           <FileText className="h-4 w-4 text-[#1e3a5f]" />
           勤怠状況（今日）
         </h2>
-        <p className="mb-3 text-xs text-gray-500">{today.date.replace(/-/g, "/")}</p>
+        <p className="mb-4 text-xs font-medium text-gray-500">{today.date.replace(/-/g, "/")}</p>
         <div className="overflow-hidden rounded-lg border border-gray-200">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-2.5 font-semibold text-gray-700">出勤</th>
-                <th className="px-4 py-2.5 font-semibold text-gray-700">退勤</th>
-                <th className="px-4 py-2.5 font-semibold text-gray-700">勤務時間</th>
+                <th className="px-4 py-3 font-semibold text-gray-700">出勤</th>
+                <th className="px-4 py-3 font-semibold text-gray-700">退勤</th>
+                <th className="px-4 py-3 font-semibold text-gray-700">休憩</th>
+                <th className="px-4 py-3 font-semibold text-gray-700">実労働時間</th>
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-gray-100">
-                <td className="px-4 py-3 tabular-nums text-gray-900">{today.clockIn ?? "—"}</td>
-                <td className="px-4 py-3 tabular-nums text-gray-900">{today.clockOut ?? "—"}</td>
-                <td className="px-4 py-3 tabular-nums font-medium text-gray-900">
-                  {workMinutes != null ? formatDuration(workMinutes) : "—"}
+                <td className="px-4 py-3 tabular-nums font-medium text-gray-900">{today.clockIn ?? "—"}</td>
+                <td className="px-4 py-3 tabular-nums font-medium text-gray-900">{today.clockOut ?? "—"}</td>
+                <td className="px-4 py-3 tabular-nums text-gray-700">
+                  {today.breakStart ?? "—"} ～ {today.breakEnd ?? "—"}
+                </td>
+                <td className="px-4 py-3 tabular-nums font-semibold text-gray-900">
+                  {actualMinutes != null ? formatDuration(actualMinutes) : "—"}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        {status && (
-          <p className="mt-3 text-xs font-medium text-gray-600">
-            ステータス: <span className={status === "勤務中" ? "text-green-600" : "text-gray-500"}>{status}</span>
-          </p>
-        )}
       </section>
 
-      <section id="history" className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
+      <section id="history" className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">
           <Calendar className="h-4 w-4 text-[#1e3a5f]" />
           打刻履歴（直近1週間）
         </h2>
@@ -126,23 +186,32 @@ export function DashboardContent() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-3 py-2 font-semibold text-gray-700">日付</th>
-                <th className="px-3 py-2 font-semibold text-gray-700">出勤</th>
-                <th className="px-3 py-2 font-semibold text-gray-700">退勤</th>
-                <th className="px-3 py-2 font-semibold text-gray-700">勤務時間</th>
+                <th className="px-3 py-3 font-semibold text-gray-700">日付</th>
+                <th className="px-3 py-3 font-semibold text-gray-700">出勤</th>
+                <th className="px-3 py-3 font-semibold text-gray-700">退勤</th>
+                <th className="px-3 py-3 font-semibold text-gray-700">休憩</th>
+                <th className="px-3 py-3 font-semibold text-gray-700">実労働</th>
               </tr>
             </thead>
             <tbody>
               {last7Dates.map((date) => {
                 const rec = historyByDate[date]
-                const workM = calcWorkMinutes(rec?.clockIn ?? null, rec?.clockOut ?? null)
+                const actual = calcActualWorkMinutes(
+                  rec?.clockIn ?? null,
+                  rec?.clockOut ?? null,
+                  rec?.breakStart ?? null,
+                  rec?.breakEnd ?? null
+                )
                 return (
                   <tr key={date} className="border-b border-gray-100 last:border-0">
                     <td className="px-3 py-2.5 font-medium text-gray-700">{formatDisplayDate(date)}</td>
                     <td className="px-3 py-2.5 tabular-nums text-gray-900">{rec?.clockIn ?? "—"}</td>
                     <td className="px-3 py-2.5 tabular-nums text-gray-900">{rec?.clockOut ?? "—"}</td>
+                    <td className="px-3 py-2.5 tabular-nums text-gray-600">
+                      {rec?.breakStart ?? "—"}～{rec?.breakEnd ?? "—"}
+                    </td>
                     <td className="px-3 py-2.5 tabular-nums font-medium text-gray-900">
-                      {workM != null ? formatDuration(workM) : "—"}
+                      {actual != null ? formatDuration(actual) : "—"}
                     </td>
                   </tr>
                 )

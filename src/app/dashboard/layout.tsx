@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { LayoutDashboard, History, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, History, CalendarPlus, Settings, LogOut } from "lucide-react"
 
 export default async function DashboardLayout({
   children,
@@ -35,6 +35,13 @@ export default async function DashboardLayout({
             >
               <History className="h-5 w-5" />
               打刻履歴
+            </Link>
+            <Link
+              href="/dashboard/leave"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
+            >
+              <CalendarPlus className="h-5 w-5" />
+              休暇申請
             </Link>
             <Link
               href="/dashboard/settings"
