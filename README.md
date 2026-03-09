@@ -111,6 +111,46 @@ npm run start
 
 ---
 
+## Vercel デプロイと 404（DEPLOYMENT_NOT_FOUND）の解消
+
+**Habit Logic** を本番で動かすための手順です。
+
+### クリーンビルドで再デプロイ
+
+**方法A: Vercel ダッシュボード（推奨）**
+
+1. [vercel.com](https://vercel.com) にログインし、対象プロジェクトを開く。
+2. **Deployments** タブ → 最新のデプロイメントの **⋯** メニュー → **Redeploy**。
+3. **Redeploy** ダイアログで **Use existing Build Cache** のチェックを**外す**（クリーンビルド）。
+4. **Redeploy** を実行し、ステータスが **Ready** になるまで待つ。
+
+**方法B: Vercel CLI（ローカルで実行）**
+
+```bash
+# 未ログインの場合は一度ログイン
+npx vercel login
+
+# 本番へ強制デプロイ（キャッシュ無視）
+npx vercel --prod --force
+```
+
+完了後、ターミナルに表示される **Production** の URL が本番のアドレスです。
+
+### 本番 URL の確認
+
+- **Vercel ダッシュボード**: プロジェクト → **Settings** → **Domains** で、`.vercel.app` の URL やカスタムドメインを確認。
+- デフォルトでは次のいずれかになります:
+  - `https://<プロジェクト名>-<チーム or ユーザー>.vercel.app`
+  - 例: `https://kintai-app-xxx.vercel.app`
+
+### 404 をなくすための確認
+
+- ルート `/` は `/login` にリダイレクトされるため、**実際に開くURLは `https://<上記のドメイン>/` または `https://<上記のドメイン>/login`** です。
+- 古いデプロイのURL（別サブドメインや削除済みデプロイのURL）を使っていると **DEPLOYMENT_NOT_FOUND** や 404 になります。必ず **いまのプロジェクトの「本番」デプロイの URL** を開いてください。
+- 友人に共有する場合は、**本番ドメインのトップ**（例: `https://kintai-app-xxx.vercel.app`）を送ると、自動でログイン画面（Habit Logic）に飛びます。
+
+---
+
 ## Project Structure / プロジェクト構成
 
 ```

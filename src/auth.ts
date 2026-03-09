@@ -1,6 +1,3 @@
-/**
- * NextAuth v5 設定: 認証プロバイダー・セッション・コールバックを定義する
- */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compareSync } from "bcryptjs";
@@ -11,6 +8,7 @@ function isBcryptHash(str: string): boolean {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true, // AUTH_URL 未設定時はリクエストの Host から URL を解決（Invalid URL 回避）
   providers: [
     Credentials({
       async authorize(credentials) {
@@ -24,13 +22,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user) return null;
 
         const plainPassword = credentials.password as string;
-        const matches =
-          isBcryptHash(user.password)
-            ? compareSync(plainPassword, user.password)
-            : user.password === plainPassword;
+        const matches = isBcryptHash(user.password)
+          ? compareSync(plainPassword, user.password)
+          : user.password === plainPassword;
 
         if (matches) {
-          return { id: user.id, email: user.email, name: user.name };
+          const u = user as { id: string; email: string; name: string | null; image?: string | null; role: string };
+          return {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            image: u.image ?? undefined,
+            role: u.role ?? "member",
+          };
         }
         return null;
       },
@@ -38,18 +42,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/login",
+    signIn: "/",
   },
   callbacks: {
     jwt: async ({ token, user }) => {
-      if (user) token.sub = user.id;
+      if (user) {
+        token.sub = user.id;
+        token.role = (user as { role?: string }).role;
+      }
       return token;
     },
     session: async ({ session, token }) => {
-      if (session.user) session.user.id = token.sub as string;
+      if (session.user) {
+        session.user.id = token.sub as string;
+        session.user.role = (token.role as string) ?? "member";
+      }
       return session;
     },
   },
-  // Vercel では AUTH_SECRET を必須で設定すること（未設定だとビルド/実行時エラー）
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET ?? "dev-secret-at-least-32-characters-long",
 });

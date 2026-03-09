@@ -25,7 +25,7 @@ export default function LeavePage() {
       const res = await fetch("/api/leave");
       if (!res.ok) return;
       const json = await res.json();
-      setList(json.list ?? []);
+      setList(json?.list ?? []);
     } catch {
       setList([]);
     }
@@ -50,7 +50,7 @@ export default function LeavePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "申請に失敗しました。");
+        toast.error(data?.error ?? "申請に失敗しました。");
         return;
       }
       toast.success("休暇申請を送信しました。");

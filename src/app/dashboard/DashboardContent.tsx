@@ -2,7 +2,9 @@
 
 /**
  * Habit Logic ダッシュボード: ①勤怠固定、以降はD&Dで並び替え可能（学習・今日は何の日・AI用語・ヘッドライン）
+ * カード類は next/dynamic で ssr: false にして Hydration エラーを防止。
  */
+import dynamic from "next/dynamic";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   DndContext,
@@ -22,23 +24,27 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
+import { useMounted } from "@/hooks/useMounted";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PunchPanel } from "./PunchPanel";
-import { TodayAiContent } from "./TodayAiContent";
-import { getTodaysAiNews } from "@/lib/aiNews";
-import { getTodaysSpecialDay } from "@/lib/specialDays";
-import { getTodaysAiTerm } from "@/lib/aiTerms";
 import { TOPICS } from "@/lib/topics";
 import Link from "next/link";
 import {
   FileText,
   Calendar,
-  Newspaper,
-  Sparkles,
-  ExternalLink,
   PlusCircle,
-  BookOpen,
   GripVertical,
 } from "lucide-react";
+
+const LoadingCard = () => (
+  <div className="min-h-[100px] rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-center dark:border-slate-700 dark:bg-slate-800/30">
+    <span className="text-sm text-slate-400">読み込み中…</span>
+  </div>
+);
+const TodayAiContent = dynamic(() => import("./TodayAiContent").then((m) => ({ default: m.TodayAiContent })), { ssr: false, loading: LoadingCard });
+const HeadlineCard = dynamic(() => import("./cards/HeadlineCard").then((m) => ({ default: m.HeadlineCard })), { ssr: false, loading: LoadingCard });
+const SpecialDayCard = dynamic(() => import("./cards/SpecialDayCard").then((m) => ({ default: m.SpecialDayCard })), { ssr: false, loading: LoadingCard });
+const AiTermCard = dynamic(() => import("./cards/AiTermCard").then((m) => ({ default: m.AiTermCard })), { ssr: false, loading: LoadingCard });
 
 const CARD_ORDER_KEYS = ["learning", "specialDay", "aiTerm", "headline"] as const;
 type CardId = (typeof CARD_ORDER_KEYS)[number];
@@ -65,11 +71,14 @@ type AttendanceData = {
 };
 
 function formatDisplayDate(dateStr: string) {
+  if (!dateStr || typeof dateStr !== "string") return "—";
   const d = new Date(dateStr + "T12:00:00Z");
+  if (Number.isNaN(d.getTime())) return "—";
   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
   const month = d.getUTCMonth() + 1;
   const day = d.getUTCDate();
-  const weekday = weekdays[d.getUTCDay()];
+  const w = d.getUTCDay();
+  const weekday = weekdays[w] ?? "—";
   return `${month}/${day}（${weekday}）`;
 }
 
@@ -190,87 +199,10 @@ function SortableCard({
   );
 }
 
-/** 本日のヘッドライン（最重要ニュース1件のみ） */
-function HeadlineCard() {
-  const news = useMemo(getTodaysAiNews, []);
-  return (
-    <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-600 dark:bg-slate-800/30">
-      <div className="flex items-start gap-3">
-        <Newspaper className="mt-0.5 h-5 w-5 shrink-0 text-[#1E293B] dark:text-slate-400" />
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-[#1E293B] dark:text-slate-200">
-            {news.title}
-          </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            {news.summary}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {news.source && (
-              <span className="text-xs text-slate-500 dark:text-slate-500">
-                出典：{news.source}
-              </span>
-            )}
-            {news.url && (
-              <a
-                href={news.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#1E293B]/30 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1E293B] hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                詳細を見る
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 今日は何の日 */
-function SpecialDayCard() {
-  const special = useMemo(getTodaysSpecialDay, []);
-  return (
-    <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-800/40 dark:bg-amber-950/20">
-      <div className="flex items-start gap-3">
-        <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
-            今日は何の日
-          </p>
-          <p className="mt-1 text-sm font-medium text-amber-900 dark:text-amber-100">
-            {special.name} — {special.description}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 今日のAI用語（簡潔な解説） */
-function AiTermCard() {
-  const term = useMemo(getTodaysAiTerm, []);
-  return (
-    <div className="rounded-xl border border-violet-200/80 bg-violet-50/50 p-4 dark:border-violet-800/40 dark:bg-violet-950/20">
-      <div className="flex items-start gap-3">
-        <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-violet-900 dark:text-violet-100">
-            {term.term}
-          </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-violet-800/95 dark:text-violet-200/90">
-            {term.explanation}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function DashboardContent() {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const mounted = useMounted();
   const [appliedPlanSummary, setAppliedPlanSummary] = useState<string>("");
   const [showAppliedPlan, setShowAppliedPlan] = useState(true);
   const [customQuizName, setCustomQuizName] = useState("");
@@ -285,20 +217,19 @@ export function DashboardContent() {
     fetch("/api/settings")
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
-        if (json?.settings) {
-          setAppliedPlanSummary(json.settings.appliedPlanSummary ?? "");
-          setShowAppliedPlan(json.settings.showAppliedPlan ?? true);
-          setCustomQuizName(json.settings.customQuizName ?? "");
-          setShowSpecialDay(json.settings.showSpecialDay ?? true);
-          setShowAiNews(json.settings.showAiNews ?? true);
-          setShowAiTerm(json.settings.showAiTerm ?? true);
+        const s = json?.settings;
+        if (s) {
+          setAppliedPlanSummary(s.appliedPlanSummary ?? "");
+          setShowAppliedPlan(s.showAppliedPlan ?? true);
+          setCustomQuizName(s.customQuizName ?? "");
+          setShowSpecialDay(s.showSpecialDay ?? true);
+          setShowAiNews(s.showAiNews ?? true);
+          setShowAiTerm(s.showAiTerm ?? true);
           setPreferredTopicIds(
-            Array.isArray(json.settings.preferredTopicIds)
-              ? json.settings.preferredTopicIds
-              : [],
+            Array.isArray(s.preferredTopicIds) ? s.preferredTopicIds : [],
           );
-          setCustomLearningGoal(json.settings.customLearningGoal ?? "");
-          const order = json.settings.dashboardCardOrder;
+          setCustomLearningGoal(s.customLearningGoal ?? "");
+          const order = s.dashboardCardOrder;
           if (Array.isArray(order) && order.length > 0) {
             const valid = order.filter((k) =>
               CARD_ORDER_KEYS.includes(k as CardId)
@@ -351,7 +282,7 @@ export function DashboardContent() {
       const res = await fetch("/api/attendance");
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json.error ?? "勤怠データの取得に失敗しました。");
+        toast.error(json?.error ?? "勤怠データの取得に失敗しました。");
         setData(null);
         return;
       }
@@ -369,6 +300,85 @@ export function DashboardContent() {
   useEffect(() => {
     fetchAttendance();
   }, [fetchAttendance]);
+
+  const hasPlan = !!(appliedPlanSummary && appliedPlanSummary.trim());
+  const isSelectionOnly = !(customLearningGoal || "").trim();
+  const learningCardTitle = useMemo(() => {
+    const topics = Array.isArray(TOPICS) ? TOPICS : [];
+    if (preferredTopicIds?.length > 0 && isSelectionOnly && topics.length > 0) {
+      const labels = topics
+        .filter((t) => t && preferredTopicIds.includes(t.id))
+        .map((t) => t.label);
+      if (labels.length > 0) return labels.join("・");
+    }
+    const custom = (customQuizName || "").trim();
+    if (custom) return custom;
+    if (preferredTopicIds?.length > 0 && topics.length > 0) {
+      const labels = topics
+        .filter((t) => t && preferredTopicIds.includes(t.id))
+        .map((t) => t.label);
+      return labels.length > 0 ? labels.join("・") : "今日のカスタムクイズ";
+    }
+    return "今日のカスタムクイズ";
+  }, [preferredTopicIds, isSelectionOnly, customQuizName]);
+
+  const visibleOrder = useMemo(() => {
+    return cardOrder.filter((id) => {
+      if (id === "learning") return true;
+      if (id === "specialDay") return showSpecialDay;
+      if (id === "aiTerm") return showAiTerm;
+      if (id === "headline") return showAiNews;
+      return false;
+    });
+  }, [cardOrder, showSpecialDay, showAiTerm, showAiNews]);
+
+  const cardContent: Record<CardId, { title: string; content: React.ReactNode }> = useMemo(
+    () => ({
+      learning: {
+        title: hasPlan ? learningCardTitle : "学習プラン",
+        content: !hasPlan ? (
+          <Link
+            href="/dashboard/settings"
+            className="flex items-center justify-center gap-3 py-10 text-[#1E293B] transition hover:opacity-90 dark:text-slate-200"
+          >
+            <PlusCircle className="h-7 w-7 shrink-0 opacity-80" />
+            <span className="text-lg font-semibold">
+              ＋ 自分だけの学習プランを作成する
+            </span>
+          </Link>
+        ) : (
+          <ErrorBoundary sectionName="学習プラン">
+            <TodayAiContent />
+          </ErrorBoundary>
+        ),
+      },
+      specialDay: {
+        title: "今日は何の日",
+        content: (
+          <ErrorBoundary sectionName="今日は何の日">
+            <SpecialDayCard />
+          </ErrorBoundary>
+        ),
+      },
+      aiTerm: {
+        title: "今日のAI用語",
+        content: (
+          <ErrorBoundary sectionName="今日のAI用語">
+            <AiTermCard />
+          </ErrorBoundary>
+        ),
+      },
+      headline: {
+        title: "本日のヘッドライン（最重要ニュース）",
+        content: (
+          <ErrorBoundary sectionName="ヘッドライン">
+            <HeadlineCard />
+          </ErrorBoundary>
+        ),
+      },
+    }),
+    [hasPlan, learningCardTitle]
+  );
 
   if (loading && !data) {
     return (
@@ -402,72 +412,33 @@ export function DashboardContent() {
         : "勤務中"
     : null;
 
-  const hasPlan = !!(appliedPlanSummary && appliedPlanSummary.trim());
-  const isSelectionOnly = !(customLearningGoal || "").trim();
-  const learningCardTitle = (() => {
-    if (preferredTopicIds?.length > 0 && isSelectionOnly) {
-      const labels = TOPICS.filter((t) => preferredTopicIds.includes(t.id)).map(
-        (t) => t.label,
-      );
-      if (labels.length > 0) return labels.join("・");
+  const todayLabel = (() => {
+    const raw = today?.date || "";
+    if (raw) {
+      const d = new Date(raw + "T12:00:00Z");
+      if (!Number.isNaN(d.getTime())) {
+        const y = d.getUTCFullYear();
+        const m = d.getUTCMonth() + 1;
+        const day = d.getUTCDate();
+        const w = ["日", "月", "火", "水", "木", "金", "土"][d.getUTCDay()] ?? "";
+        return `${y}年${m}月${day}日（${w}）`;
+      }
     }
-    const custom = (customQuizName || "").trim();
-    if (custom) return custom;
-    if (preferredTopicIds?.length > 0) {
-      const labels = TOPICS.filter((t) => preferredTopicIds.includes(t.id)).map(
-        (t) => t.label,
-      );
-      return labels.length > 0 ? labels.join("・") : "今日のカスタムクイズ";
-    }
-    return "今日のカスタムクイズ";
+    const n = new Date();
+    const y = n.getFullYear();
+    const m = n.getMonth() + 1;
+    const day = n.getDate();
+    const w = ["日", "月", "火", "水", "木", "金", "土"][n.getDay()] ?? "";
+    return `${y}年${m}月${day}日（${w}）`;
   })();
-
-  const visibleOrder = useMemo(() => {
-    return cardOrder.filter((id) => {
-      if (id === "learning") return true;
-      if (id === "specialDay") return showSpecialDay;
-      if (id === "aiTerm") return showAiTerm;
-      if (id === "headline") return showAiNews;
-      return false;
-    });
-  }, [cardOrder, showSpecialDay, showAiTerm, showAiNews]);
-
-  const cardContent: Record<CardId, { title: string; content: React.ReactNode }> = useMemo(
-    () => ({
-      learning: {
-        title: hasPlan ? learningCardTitle : "学習プラン",
-        content: !hasPlan ? (
-          <Link
-            href="/dashboard/settings"
-            className="flex items-center justify-center gap-3 py-10 text-[#1E293B] transition hover:opacity-90 dark:text-slate-200"
-          >
-            <PlusCircle className="h-7 w-7 shrink-0 opacity-80" />
-            <span className="text-lg font-semibold">
-              ＋ 自分だけの学習プランを作成する
-            </span>
-          </Link>
-        ) : (
-          <TodayAiContent />
-        ),
-      },
-      specialDay: {
-        title: "今日は何の日",
-        content: <SpecialDayCard />,
-      },
-      aiTerm: {
-        title: "今日のAI用語",
-        content: <AiTermCard />,
-      },
-      headline: {
-        title: "本日のヘッドライン（最重要ニュース）",
-        content: <HeadlineCard />,
-      },
-    }),
-    [hasPlan, learningCardTitle]
-  );
 
   return (
     <div className="flex flex-1 flex-col gap-8 p-6 md:p-8">
+      {/* 今日の日付（西暦） */}
+      <p className="text-sm font-medium text-slate-600 dark:text-slate-400" aria-live="polite">
+        {todayLabel}
+      </p>
+
       {/* ① 勤怠パネル（固定） */}
       <div className={CARD_CLASS}>
         <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
@@ -503,36 +474,53 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* 並び替え可能カード（ドラッグハンドル付き） */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={visibleOrder}
-          strategy={verticalListSortingStrategy}
+      {/* 並び替え可能カード（クライアントマウント後のみ DnD 有効で Hydration エラー防止） */}
+      {!mounted ? (
+        (Array.isArray(visibleOrder) ? visibleOrder : []).map((id) => {
+          const entry = cardContent?.[id as CardId];
+          if (!entry) return null;
+          return (
+            <div key={id} className={CARD_CLASS}>
+              <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+                  {entry?.title ?? "—"}
+                </h2>
+              </div>
+              <div className="p-5">{entry?.content ?? null}</div>
+            </div>
+          );
+        })
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          {visibleOrder.map((id) => (
-            <SortableCard
-              key={id}
-              id={id}
-              title={cardContent[id].title}
-            >
-              {cardContent[id].content}
-            </SortableCard>
-          ))}
-        </SortableContext>
-      </DndContext>
+          <SortableContext
+            items={Array.isArray(visibleOrder) ? visibleOrder : []}
+            strategy={verticalListSortingStrategy}
+          >
+            {(Array.isArray(visibleOrder) ? visibleOrder : []).map((id) => {
+              const entry = cardContent?.[id as CardId];
+              if (!entry) return null;
+              return (
+                <SortableCard key={id} id={id as CardId} title={entry.title ?? "—"}>
+                  {entry.content}
+                </SortableCard>
+              );
+            })}
+          </SortableContext>
+        </DndContext>
+      )}
 
-      {hasPlan && showAppliedPlan && appliedPlanSummary && (
+      {hasPlan && showAppliedPlan && appliedPlanSummary?.trim() && (
         <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-5 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:bg-slate-800/50">
           <p className="text-xs font-semibold text-[#1E293B] dark:text-slate-300">
             現在の学習プラン
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-            {appliedPlanSummary.slice(0, 140)}
-            {appliedPlanSummary.length > 140 ? "…" : ""}
+            {String(appliedPlanSummary).slice(0, 140)}
+            {String(appliedPlanSummary).length > 140 ? "…" : ""}
           </p>
         </div>
       )}
@@ -547,7 +535,7 @@ export function DashboardContent() {
         </div>
         <div className="p-5">
           <p className="mb-3 text-xs font-medium text-slate-500">
-            {today.date.replace(/-/g, "/")}
+            {today.date ? String(today.date).replace(/-/g, "/") : "—"}
           </p>
           <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
             <table className="w-full text-left text-sm">
@@ -620,8 +608,8 @@ export function DashboardContent() {
               </tr>
             </thead>
             <tbody>
-              {last7Dates.map((date) => {
-                const rec = historyByDate[date];
+              {(Array.isArray(last7Dates) ? last7Dates : []).map((date) => {
+                const rec = historyByDate?.[date];
                 const actual = calcActualWorkMinutes(
                   rec?.clockIn ?? null,
                   rec?.clockOut ?? null,

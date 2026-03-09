@@ -52,22 +52,30 @@ export default function RegisterPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        toast.error(data.error ?? "登録に失敗しました。");
-        setFieldErrors({ email: data.error });
+        toast.error(data?.error ?? "登録に失敗しました。");
+        setFieldErrors({ email: data?.error ?? "" });
         return;
       }
       toast.success("登録が完了しました。");
-      const signInResult = await signIn("credentials", {
-        email: parsed.data.email.trim().toLowerCase(),
-        password: parsed.data.password,
-        redirect: false,
-      });
-      if (signInResult?.error) {
-        toast.info("登録しました。ログイン画面からお入りください。");
-        router.push("/login");
-      } else {
-        router.push("/dashboard");
+      const email = parsed.data.email.trim().toLowerCase();
+      const password = parsed.data.password;
+      try {
+        const signInResult = await Promise.race([
+          signIn("credentials", { email, password, redirect: false }),
+          new Promise<undefined>((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), 5000)
+          ),
+        ]);
+        if (signInResult && !(signInResult as { error?: string }).error) {
+          router.push("/dashboard");
+          router.refresh();
+          return;
+        }
+      } catch {
+        // signIn がタイムアウトまたは失敗 → ログイン画面へ
       }
+      toast.info("ログイン画面から、今のメールとパスワードでサインインしてください。");
+      router.push("/?registered=1");
       router.refresh();
     } catch {
       toast.error(
@@ -79,25 +87,21 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex flex-col items-center justify-center px-4 py-12 dark:from-[#0f172a] dark:to-[#1e293b]">
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-[400px]">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-[#1E293B] dark:text-white">
-            Habit Logic
-          </h1>
-          <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-slate-800">Habit Logic</h1>
+          <p className="mt-2 text-sm text-slate-600">
             習慣を、上昇のロジックに変える。
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-[0_4px_24px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-[0_4px_24px_rgba(0,0,0,0.25)]">
-          <h2 className="text-lg font-semibold text-[#1E293B] dark:text-white mb-6">
-            新規登録
-          </h2>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">新規登録</h2>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-slate-700 mb-1.5 dark:text-slate-300"
+                className="block text-sm font-medium text-slate-700 mb-1"
               >
                 名前
               </label>
@@ -107,13 +111,13 @@ export default function RegisterPage() {
                 placeholder="山田 太郎"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E293B]/20 focus:border-[#1E293B] dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:ring-slate-500/30"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white text-slate-800"
               />
             </div>
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-700 mb-1.5 dark:text-slate-300"
+                className="block text-sm font-medium text-slate-700 mb-1"
               >
                 メールアドレス
               </label>
@@ -123,18 +127,16 @@ export default function RegisterPage() {
                 placeholder="example@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E293B]/20 focus:border-[#1E293B] dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:ring-slate-500/30"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white text-slate-800"
               />
               {fieldErrors.email && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                  {fieldErrors.email}
-                </p>
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
               )}
             </div>
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-700 mb-1.5 dark:text-slate-300"
+                className="block text-sm font-medium text-slate-700 mb-1"
               >
                 パスワード
               </label>
@@ -144,28 +146,23 @@ export default function RegisterPage() {
                 placeholder="6文字以上"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E293B]/20 focus:border-[#1E293B] dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:ring-slate-500/30"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white text-slate-800"
               />
               {fieldErrors.password && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                  {fieldErrors.password}
-                </p>
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
               )}
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-[#1E293B] text-white font-semibold rounded-lg hover:bg-[#334155] focus:outline-none focus:ring-2 focus:ring-[#1E293B]/30 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+              className="w-full py-2.5 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? "登録中..." : "登録"}
             </button>
           </form>
-          <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-4 text-center text-sm text-slate-600">
             すでにアカウントをお持ちの方は
-            <Link
-              href="/login"
-              className="text-[#1E293B] hover:underline ml-1 font-medium dark:text-slate-300 dark:hover:text-white"
-            >
+            <Link href="/" className="text-blue-600 hover:underline ml-1 font-medium">
               ログイン
             </Link>
           </p>

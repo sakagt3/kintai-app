@@ -32,7 +32,42 @@ export function TodayAiContent() {
     fetch("/api/ai/today-questions")
       .then((res) => res.json().catch(() => ({})))
       .then((data) => {
-        setQuestions(Array.isArray(data.questions) ? data.questions : []);
+        const raw = Array.isArray(data.questions) ? data.questions : [];
+        const valid = raw
+          .filter((q: unknown) => {
+            if (!q || typeof q !== "object") return false;
+            const o = q as { question?: unknown; options?: unknown };
+            return (
+              typeof o.question === "string" &&
+              Array.isArray(o.options) &&
+              o.options.length >= 4
+            );
+          })
+          .map((q: unknown) => {
+            const x = q as {
+              id?: string;
+              question: string;
+              options: string[];
+              correctIndex?: number;
+              explanation?: string;
+              isReview?: boolean;
+            };
+            return {
+              id:
+                typeof x.id === "string"
+                  ? x.id
+                  : `q-${Math.random().toString(36).slice(2, 9)}`,
+              question: String(x.question ?? ""),
+              options: Array.isArray(x.options) ? x.options.slice(0, 4) : [],
+              correctIndex: Math.min(
+                3,
+                Math.max(0, Number(x.correctIndex) ?? 0)
+              ),
+              explanation: String(x.explanation ?? ""),
+              isReview: Boolean(x.isReview),
+            };
+          });
+        setQuestions(valid);
         setRetentionRate(
           typeof data.retentionRate === "number" ? data.retentionRate : null
         );
@@ -50,6 +85,7 @@ export function TodayAiContent() {
   }, [fetchQuestions]);
 
   const current = questions[index];
+  const safeOptions = Array.isArray(current?.options) ? current.options : [];
   const correct =
     selectedIndex !== null && current && selectedIndex === current.correctIndex;
 
@@ -144,12 +180,20 @@ export function TodayAiContent() {
     );
   }
 
+  if (!current) {
+    return (
+      <div className="text-sm text-slate-500">
+        問題を読み込み直しています…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>
           問 {index + 1} / {questions.length}
-          {current?.isReview && (
+          {current.isReview && (
             <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
               復習
             </span>
@@ -165,10 +209,10 @@ export function TodayAiContent() {
       {!showResult ? (
         <>
           <p className="font-medium text-[#1E293B] dark:text-slate-200">
-            {current.question}
+            {current?.question ?? ""}
           </p>
           <div className="grid gap-2">
-            {current.options.map((opt, i) => (
+            {safeOptions.map((opt, i) => (
               <button
                 key={i}
                 type="button"
@@ -201,7 +245,7 @@ export function TodayAiContent() {
             <span className="font-medium">{correct ? "正解です！" : "不正解"}</span>
           </div>
           <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-            {current.explanation}
+            {current?.explanation ?? ""}
           </p>
           {index + 1 < questions.length ? (
             <button

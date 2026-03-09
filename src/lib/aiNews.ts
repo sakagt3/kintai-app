@@ -81,8 +81,17 @@ const MOCK_ITEMS: AiNewsItem[] = [
 
 /**
  * 今日のAIニュースを1件返す（モック: 日付のハッシュで選択。将来はAPIに差し替え）
+ * 0件のときは安全のためデフォルト1件を返す。
  */
 export function getTodaysAiNews(): AiNewsItem {
+  if (!MOCK_ITEMS || MOCK_ITEMS.length === 0) {
+    return {
+      id: "fallback",
+      title: "—",
+      summary: "—",
+      publishedAt: new Date().toISOString(),
+    };
+  }
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const year = jst.getUTCFullYear();
@@ -93,7 +102,8 @@ export function getTodaysAiNews(): AiNewsItem {
       new Date(year, 0, 0).getTime()) /
       86400000,
   );
-  const index = dayOfYear % MOCK_ITEMS.length;
+  const index = Math.abs(dayOfYear) % MOCK_ITEMS.length;
   const item = MOCK_ITEMS[index];
+  if (!item) return MOCK_ITEMS[0];
   return { ...item, publishedAt: now.toISOString() };
 }

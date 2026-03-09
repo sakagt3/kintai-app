@@ -69,38 +69,35 @@ export default function SettingsPage() {
         return res.json();
       })
       .then((data) => {
-        if (data.settings) {
+        const s = data?.settings;
+        if (s) {
           setSettings({
-            showSpecialDay: data.settings.showSpecialDay ?? true,
-            showAiNews: data.settings.showAiNews ?? true,
-            showAiTerm: data.settings.showAiTerm ?? true,
-            showAppliedPlan: data.settings.showAppliedPlan ?? true,
-            displayMode: data.settings.displayMode ?? "standard",
-            displayVolume: data.settings.displayVolume === "detailed" ? "detailed" : "simple",
-            preferredTopicIds: Array.isArray(data.settings.preferredTopicIds)
-              ? data.settings.preferredTopicIds
-              : [],
-            customLearningGoal: data.settings.customLearningGoal ?? "",
-            customQuizName: data.settings.customQuizName ?? "",
+            showSpecialDay: s.showSpecialDay ?? true,
+            showAiNews: s.showAiNews ?? true,
+            showAiTerm: s.showAiTerm ?? true,
+            showAppliedPlan: s.showAppliedPlan ?? true,
+            displayMode: s.displayMode ?? "standard",
+            displayVolume: s.displayVolume === "detailed" ? "detailed" : "simple",
+            preferredTopicIds: Array.isArray(s.preferredTopicIds) ? s.preferredTopicIds : [],
+            customLearningGoal: s.customLearningGoal ?? "",
+            customQuizName: s.customQuizName ?? "",
             dailyQuizCount:
-              typeof data.settings.dailyQuizCount === "number"
-                ? Math.min(20, Math.max(1, data.settings.dailyQuizCount))
+              typeof s.dailyQuizCount === "number"
+                ? Math.min(20, Math.max(1, s.dailyQuizCount))
                 : 5,
             learningLevel:
-              ["beginner", "intermediate", "advanced", "pro"].includes(
-                data.settings.learningLevel
-              )
-                ? data.settings.learningLevel
+              ["beginner", "intermediate", "advanced", "pro"].includes(s.learningLevel ?? "")
+                ? (s.learningLevel ?? "intermediate")
                 : "intermediate",
-            contentFocus:
-              data.settings.contentFocus === "quiz" ? "quiz" : "topic",
-            appliedPlanSummary: data.settings.appliedPlanSummary ?? "",
+            contentFocus: s.contentFocus === "quiz" ? "quiz" : "topic",
+            appliedPlanSummary: s.appliedPlanSummary ?? "",
           });
         }
-        if (data.profile) {
+        const p = data?.profile;
+        if (p) {
           setProfile({
-            name: data.profile.name ?? "",
-            email: data.profile.email ?? "",
+            name: p.name ?? "",
+            email: p.email ?? "",
           });
         }
       })
@@ -131,7 +128,7 @@ export default function SettingsPage() {
     })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error ?? "保存に失敗しました。");
+        if (!res.ok) throw new Error(data?.error ?? "保存に失敗しました。");
         toast.success("設定を保存し、ダッシュボードを更新しました");
         router.refresh();
       })
@@ -156,7 +153,7 @@ export default function SettingsPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "設定の保存に失敗しました。");
+      if (!res.ok) throw new Error(data?.error ?? "設定の保存に失敗しました。");
       await fetch("/api/learning-history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,8 +189,8 @@ export default function SettingsPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
-      const planText = data.planText ?? "";
+      if (!res.ok) throw new Error(data?.error ?? "生成に失敗しました");
+      const planText = data?.planText ?? "";
       setDiagnosisPreviewText(planText);
       toast.success("プランを作成しました。下の「このプランを適用して開始する」で確定できます。");
     } catch {

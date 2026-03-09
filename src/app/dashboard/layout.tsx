@@ -7,6 +7,7 @@ import {
   CalendarPlus,
   Settings,
   LogOut,
+  Shield,
 } from "lucide-react";
 
 export default async function DashboardLayout({
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
           <div className="border-b border-white/10 px-4 py-5">
             <h1 className="text-lg font-bold tracking-tight">Habit Logic</h1>
             <p className="mt-1 truncate text-xs text-white/70">
-              {session.user?.name ?? session.user?.email}
+              {session?.user?.name ?? session?.user?.email ?? "—"}
             </p>
           </div>
           <nav className="flex-1 space-y-0.5 p-3">
@@ -56,6 +57,15 @@ export default async function DashboardLayout({
               <Settings className="h-5 w-5" />
               設定
             </Link>
+            {session?.user?.role === "admin" && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
+              >
+                <Shield className="h-5 w-5" />
+                管理者
+              </Link>
+            )}
           </nav>
           <div className="border-t border-white/10 p-3">
             <form

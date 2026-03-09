@@ -102,14 +102,18 @@ const TERMS: AiTermEntry[] = [
   },
 ];
 
-/** 日付に応じて1件返す（営業で使いやすいAI用語） */
+/** 日付に応じて1件返す（営業で使いやすいAI用語）。0件時は安全のためデフォルトを返す。 */
 export function getTodaysAiTerm(): AiTermEntry {
+  if (!TERMS || TERMS.length === 0) {
+    return { term: "—", explanation: "—", talkExample: "—", businessUse: "—" };
+  }
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const dayOfYear = Math.floor(
     (jst.getTime() - new Date(jst.getUTCFullYear(), 0, 0).getTime()) /
       86400000,
   );
-  const index = dayOfYear % TERMS.length;
-  return TERMS[index];
+  const index = Math.abs(dayOfYear) % TERMS.length;
+  const item = TERMS[index];
+  return item ?? TERMS[0];
 }

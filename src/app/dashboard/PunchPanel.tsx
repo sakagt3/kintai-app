@@ -52,7 +52,7 @@ export function PunchPanel({ onSuccess }: { onSuccess: () => void }) {
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error ?? "打刻に失敗しました。");
+          if (!res.ok) throw new Error(data?.error ?? "打刻に失敗しました。");
           toast.success(`お疲れ様です！ ${displayTime}`, {
             description: `${LABELS[type]}を記録しました。`,
           });

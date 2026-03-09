@@ -13,6 +13,7 @@ model User {
   email         String        @unique
   name          String?
   password      String
+  image         String?       // NextAuth 互換（プロフィール画像URL）
   role          String        @default("member")
   attendance    Attendance[]
   leaveRequests LeaveRequest[]
