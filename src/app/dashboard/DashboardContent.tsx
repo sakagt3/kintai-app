@@ -212,6 +212,7 @@ export function DashboardContent() {
   const [showAiNews, setShowAiNews] = useState(true);
   const [showAiTerm, setShowAiTerm] = useState(true);
   const [preferredTopicIds, setPreferredTopicIds] = useState<string[]>([]);
+  const [customLearningGoal, setCustomLearningGoal] = useState("");
 
   const fetchSettings = useCallback(() => {
     fetch("/api/settings")
@@ -229,6 +230,7 @@ export function DashboardContent() {
               ? json.settings.preferredTopicIds
               : [],
           );
+          setCustomLearningGoal(json.settings.customLearningGoal ?? "");
         }
       })
       .catch(() => {});
@@ -301,7 +303,14 @@ export function DashboardContent() {
     : null;
 
   const hasPlan = !!(appliedPlanSummary && appliedPlanSummary.trim());
+  const isSelectionOnly = !(customLearningGoal || "").trim();
   const learningCardTitle = (() => {
+    if (preferredTopicIds?.length > 0 && isSelectionOnly) {
+      const labels = TOPICS.filter((t) => preferredTopicIds.includes(t.id)).map(
+        (t) => t.label,
+      );
+      if (labels.length > 0) return labels.join("・");
+    }
     const custom = (customQuizName || "").trim();
     if (custom) return custom;
     if (preferredTopicIds?.length > 0) {

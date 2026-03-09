@@ -344,25 +344,7 @@ export default function SettingsPage() {
           このトグルをONにすると、以下の設定がダッシュボードに反映されます。
         </p>
 
-        <div className="mb-4">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            カスタムクイズ名（ダッシュボードのクイズカード見出し）
-          </label>
-          <input
-            type="text"
-            value={settings.customQuizName}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, customQuizName: e.target.value }))
-            }
-            placeholder="例: TOEIC、AI営業トーク"
-            className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            空欄の場合は「今日のカスタムクイズ」と表示されます。
-          </p>
-        </div>
-
-        {/* 4段階レベル */}
+        {/* 4段階レベル（A・B共通の基本設定） */}
         <div className="mb-4">
           <label className="mb-2 block text-xs font-medium text-gray-600">
             レベル（解説の深さ・専門用語の量）
@@ -425,8 +407,29 @@ export default function SettingsPage() {
 
         <p className="mb-2 text-xs font-medium text-gray-600">B. 生成AI式</p>
         <p className="mb-2 text-xs text-gray-500">
-          自由記述で自分専用のトピック・問題を生成します。
+          自由記述で自分専用のトピック・問題を生成します。ここで付けた「カスタム学習名」がダッシュボードのカード見出しになります。
         </p>
+        <p className="mb-3 text-xs text-amber-700/90 bg-amber-50/80 rounded-lg px-3 py-2 border border-amber-200/60">
+          ※特に指示がない場合、回答の難易度は『基本設定』で選択した学習レベル（初級/中級/上級）が適用されます。
+        </p>
+        {/* カスタム学習名（選択肢Bのみ：ダッシュボードのカードタイトル） */}
+        <div className="mb-4">
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            カスタム学習名（このプランの名前）
+          </label>
+          <input
+            type="text"
+            value={settings.customQuizName}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, customQuizName: e.target.value }))
+            }
+            placeholder="例: 俺のAI営業修行、TOEIC 800への道"
+            className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            ここで入力した名前がダッシュボードの学習カードのタイトルになります。
+          </p>
+        </div>
         {/* トピック中心 vs 問題形式 */}
         <div className="mb-4">
           <label className="mb-2 block text-xs font-medium text-gray-600">
