@@ -1,27 +1,56 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Newspaper, ExternalLink } from "lucide-react";
-import { getTodaysAiNews } from "@/lib/aiNews";
+
+type HeadlineItem = {
+  id: string;
+  title: string;
+  summary: string;
+  source?: string;
+  url?: string;
+  publishedAt?: string;
+};
 
 export function HeadlineCard() {
-  const raw = useMemo(() => {
-    try {
-      return getTodaysAiNews();
-    } catch {
-      return null;
-    }
+  const [headline, setHeadline] = useState<HeadlineItem | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/headline")
+      .then((res) => res.json())
+      .then((data: { headline?: HeadlineItem | null }) => {
+        if (!cancelled && data?.headline) setHeadline(data.headline);
+      })
+      .catch(() => {
+        if (!cancelled) setHeadline(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (raw == null) return null;
-  if (Array.isArray(raw) && raw.length === 0) return null;
-  const item = Array.isArray(raw) ? (raw as { title?: string; summary?: string; source?: string; url?: string }[])[0] : raw;
-  if (!item || typeof item !== "object") return null;
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-600 dark:bg-slate-800/30">
+        <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
+          <Newspaper className="h-5 w-5 shrink-0 animate-pulse" />
+          <span className="text-sm">ニュースを取得しています…</span>
+        </div>
+      </div>
+    );
+  }
 
-  const title = item?.title ?? "—";
-  const summary = item?.summary ?? "—";
-  const source = item?.source;
-  const url = item?.url;
+  if (!headline?.title) return null;
+
+  const title = headline.title;
+  const summary = headline.summary ?? "—";
+  const source = headline.source;
+  const url = headline.url;
 
   return (
     <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-600 dark:bg-slate-800/30">

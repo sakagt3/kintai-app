@@ -169,17 +169,20 @@ const WEEKDAY_MESSAGES: Record<number, string> = {
 };
 
 /**
- * 指定した日付の「今日は何の日」を返す（JST の月・日を使用）
+ * 指定した日付の「今日は何の日」を返す（JST の月・日を使用）。
+ * year を渡すとその年の曜日でフォールバックメッセージを出し、渡さない場合は 2000 年で計算する。
  */
 export function getSpecialDay(
   month: number,
   day: number,
+  year?: number,
 ): { name: string; description: string; detail?: string } {
   const key = `${month}-${day}`;
   const special = SPECIAL_DAYS[key];
   if (special) return special;
-  const d = new Date(2000, month - 1, day);
-  const dayOfWeek = d.getDay();
+  const y = year ?? 2000;
+  const d = new Date(Date.UTC(y, month - 1, day));
+  const dayOfWeek = d.getUTCDay();
   const fallback = WEEKDAY_MESSAGES[dayOfWeek];
   return {
     name: `${month}月${day}日`,
@@ -198,7 +201,8 @@ export function getTodaysSpecialDay(): {
 } {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = jst.getUTCFullYear();
   const month = jst.getUTCMonth() + 1;
   const day = jst.getUTCDate();
-  return getSpecialDay(month, day);
+  return getSpecialDay(month, day, year);
 }

@@ -18,7 +18,7 @@ function parseTopicIds(v: unknown): string[] | undefined {
   return arr.length ? arr : undefined;
 }
 
-const CARD_ORDER_KEYS = ["learning", "specialDay", "aiTerm", "headline"] as const;
+const CARD_ORDER_KEYS = ["specialDay", "learning", "aiTerm", "headline"] as const;
 
 function parseCardOrder(v: string | null | undefined): string[] {
   if (!v) return [...CARD_ORDER_KEYS];

@@ -39,7 +39,7 @@ import {
   GripVertical,
 } from "lucide-react";
 
-const CARD_ORDER_KEYS = ["learning", "specialDay", "aiTerm", "headline"] as const;
+const CARD_ORDER_KEYS = ["specialDay", "learning", "aiTerm", "headline"] as const;
 type CardId = (typeof CARD_ORDER_KEYS)[number];
 
 type TodayRecord = {
@@ -422,11 +422,12 @@ export function DashboardContent() {
         return `${y}年${m}月${day}日（${w}）`;
       }
     }
-    const n = new Date();
-    const y = n.getFullYear();
-    const m = n.getMonth() + 1;
-    const day = n.getDate();
-    const w = ["日", "月", "火", "水", "木", "金", "土"][n.getDay()] ?? "";
+    const now = new Date();
+    const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const y = jst.getUTCFullYear();
+    const m = jst.getUTCMonth() + 1;
+    const day = jst.getUTCDate();
+    const w = ["日", "月", "火", "水", "木", "金", "土"][jst.getUTCDay()] ?? "";
     return `${y}年${m}月${day}日（${w}）`;
   })();
 
