@@ -89,7 +89,7 @@ export function PlanPreview({
 
       {!planLoading && !displayText && !appliedPlanSummary && (
         <p className="text-xs text-gray-500">
-          上の「この内容でプラン作成」で、背景説明とサンプル付きのプランが表示されます。
+          上の「この内容でプラン作成」を押すと、あなた用のプランが表示されます。
         </p>
       )}
     </div>

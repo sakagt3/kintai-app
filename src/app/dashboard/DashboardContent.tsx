@@ -27,10 +27,14 @@ import { TodayAiContent } from "./TodayAiContent";
 import { getTodaysAiNews } from "@/lib/aiNews";
 import { getTodaysSpecialDay } from "@/lib/specialDays";
 import type { BannerSettings } from "./IntelligentBanner";
-import { FileText, Calendar, GripVertical, Newspaper, Sparkles, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { FileText, Calendar, GripVertical, Newspaper, Sparkles, ExternalLink, PlusCircle } from "lucide-react";
 
 const CARD_ORDER_KEYS = ["quiz", "news", "specialDay"] as const;
 type CardId = (typeof CARD_ORDER_KEYS)[number];
+
+const DEFAULT_ORDER_WITH_PLAN: CardId[] = ["quiz", "news", "specialDay"];
+const DEFAULT_ORDER_NO_PLAN: CardId[] = ["news", "specialDay"];
 
 type TodayRecord = {
   date: string;
@@ -253,7 +257,7 @@ export function DashboardContent() {
               CARD_ORDER_KEYS.includes(k as CardId)
             ) as CardId[];
             const rest = CARD_ORDER_KEYS.filter((k) => !valid.includes(k));
-            setCardOrder(valid.length > 0 ? [...valid, ...rest] : [...CARD_ORDER_KEYS]);
+            setCardOrder(valid.length > 0 ? [...valid, ...rest] : DEFAULT_ORDER_WITH_PLAN);
           }
         }
       })
@@ -336,7 +340,9 @@ export function DashboardContent() {
         : "勤務中"
     : null;
 
+  const hasPlan = !!(appliedPlanSummary && appliedPlanSummary.trim());
   const quizCardTitle = (customQuizName || "今日のカスタムクイズ").trim() || "今日のカスタムクイズ";
+  const visibleCardOrder = hasPlan ? cardOrder : DEFAULT_ORDER_NO_PLAN;
 
   const cardMap: Record<CardId, { title: string; content: React.ReactNode }> = {
     quiz: {
@@ -386,17 +392,28 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* 並び替え可能: クイズ・ニュース・今日は何の日 */}
+      {/* 未設定時: 自分だけの学習プラン作成への誘導 */}
+      {!hasPlan && (
+        <Link
+          href="/dashboard/settings"
+          className="flex items-center justify-center gap-3 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/80 py-8 text-emerald-800 transition hover:border-emerald-400 hover:bg-emerald-100/80 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+        >
+          <PlusCircle className="h-8 w-8 shrink-0" />
+          <span className="text-lg font-semibold">自分だけの学習プランを作成する</span>
+        </Link>
+      )}
+
+      {/* 並び替え可能: 設定済みならクイズ＋ニュース＋今日は何の日 / 未設定ならニュース＋今日は何の日 */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={cardOrder}
+          items={visibleCardOrder}
           strategy={verticalListSortingStrategy}
         >
-          {cardOrder.map((id) => (
+          {visibleCardOrder.map((id) => (
             <SortableCard
               key={id}
               id={id}
@@ -408,7 +425,7 @@ export function DashboardContent() {
         </SortableContext>
       </DndContext>
 
-      {showAppliedPlan && appliedPlanSummary && (
+      {hasPlan && showAppliedPlan && appliedPlanSummary && (
         <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 shadow-sm">
           <p className="text-xs font-semibold text-emerald-800">現在の学習プラン</p>
           <p className="mt-1 text-sm text-emerald-900/90">
