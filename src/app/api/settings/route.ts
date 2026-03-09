@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 const DISPLAY_MODES = ["standard", "detail_special", "detail_news"] as const;
 const DISPLAY_VOLUMES = ["simple", "detailed"] as const;
 const LEARNING_LEVELS = ["beginner", "intermediate", "advanced", "pro"] as const;
+const CONTENT_FOCUS = ["topic", "quiz"] as const;
 
 function parseTopicIds(v: unknown): string[] | undefined {
   if (!Array.isArray(v)) return undefined;
@@ -70,6 +71,8 @@ export async function GET() {
       customLearningGoal: settings.customLearningGoal ?? "",
       dailyQuizCount: settings.dailyQuizCount ?? 5,
       learningLevel: settings.learningLevel ?? "intermediate",
+      contentFocus: settings.contentFocus ?? "topic",
+      appliedPlanSummary: settings.appliedPlanSummary ?? "",
     },
     profile: {
       name: user?.name ?? "",
@@ -124,6 +127,15 @@ export async function PATCH(request: Request) {
     LEARNING_LEVELS.includes(raw.learningLevel as (typeof LEARNING_LEVELS)[number])
       ? raw.learningLevel
       : undefined;
+  const contentFocus =
+    typeof raw.contentFocus === "string" &&
+    CONTENT_FOCUS.includes(raw.contentFocus as (typeof CONTENT_FOCUS)[number])
+      ? raw.contentFocus
+      : undefined;
+  const appliedPlanSummary =
+    typeof raw.appliedPlanSummary === "string"
+      ? raw.appliedPlanSummary.trim() || null
+      : undefined;
   const name = typeof raw.name === "string" ? raw.name.trim() : undefined;
 
   const userId = session.user.id;
@@ -145,6 +157,8 @@ export async function PATCH(request: Request) {
       customLearningGoal: customLearningGoal ?? null,
       dailyQuizCount: dailyQuizCount ?? 5,
       learningLevel: (learningLevel as (typeof LEARNING_LEVELS)[number]) ?? "intermediate",
+      contentFocus: (contentFocus as (typeof CONTENT_FOCUS)[number]) ?? "topic",
+      appliedPlanSummary: appliedPlanSummary ?? null,
     },
     update: {
       ...(showSpecialDay !== undefined && { showSpecialDay }),
@@ -163,6 +177,8 @@ export async function PATCH(request: Request) {
       }),
       ...(dailyQuizCount !== undefined && { dailyQuizCount }),
       ...(learningLevel !== undefined && { learningLevel }),
+      ...(contentFocus !== undefined && { contentFocus }),
+      ...(appliedPlanSummary !== undefined && { appliedPlanSummary }),
     },
   });
 

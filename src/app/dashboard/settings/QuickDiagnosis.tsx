@@ -9,7 +9,19 @@ import { getQuestionsByIds } from "@/lib/quizBank";
 
 const DIAGNOSIS_QUESTION_IDS = ["it_1", "it_2", "vocab_1"];
 
-export function QuickDiagnosis() {
+const LEVEL_MAP: Record<string, "beginner" | "intermediate" | "advanced" | "pro"> = {
+  初心者: "beginner",
+  中級者: "intermediate",
+  上級者: "advanced",
+  プロ: "pro",
+};
+
+type Props = {
+  onResult?: (level: "beginner" | "intermediate" | "advanced" | "pro", message: string) => void;
+  triggerLabel?: string; // 未指定時は「診断を始める」
+};
+
+export function QuickDiagnosis({ onResult, triggerLabel }: Props) {
   const [step, setStep] = useState<"idle" | "quiz" | "result">("idle");
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<{ questionId: string; selectedIndex: number }[]>([]);
@@ -33,11 +45,12 @@ export function QuickDiagnosis() {
         })
           .then((res) => res.json())
           .then((data) => {
-            setResult({
-              level: data.level ?? "中級者",
-              message: data.message ?? "このプランはどう？",
-            });
+            const level = data.level ?? "中級者";
+            const message = data.message ?? "このプランはどう？";
+            setResult({ level, message });
             setStep("result");
+            const mapped = LEVEL_MAP[level] ?? "intermediate";
+            onResult?.(mapped, message);
           })
           .catch(() => setStep("quiz"))
           .finally(() => setLoading(false));
@@ -45,7 +58,7 @@ export function QuickDiagnosis() {
         setIndex(index + 1);
       }
     },
-    [current, index, answers]
+    [current, index, answers, onResult]
   );
 
   if (questions.length === 0) return null;
@@ -69,7 +82,7 @@ export function QuickDiagnosis() {
           onClick={() => setStep("quiz")}
           className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
         >
-          診断を始める
+          {triggerLabel ?? "診断を始める"}
         </button>
       )}
 

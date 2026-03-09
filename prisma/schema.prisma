@@ -17,9 +17,10 @@ model User {
   attendance    Attendance[]
   leaveRequests LeaveRequest[]
   settings      UserSettings?
-  quizAttempts  QuizAttempt[]
-  activityLogs  ActivityLog[]
-  createdAt     DateTime      @default(now())
+  quizAttempts    QuizAttempt[]
+  activityLogs    ActivityLog[]
+  learningHistories LearningHistory[]
+  createdAt       DateTime      @default(now())
 }
 
 /// ダッシュボード表示カスタマイズ・学習設定（ログインごとに反映）
@@ -36,8 +37,20 @@ model UserSettings {
   customLearningGoal  String?  // 自由記述「TOEIC 800点を目指す」等 → LLM連携用
   dailyQuizCount      Int      @default(5)
   learningLevel       String   @default("intermediate") // beginner | intermediate | advanced | pro
+  contentFocus        String   @default("topic") // "topic" | "quiz" トピック中心 vs 問題形式
+  appliedPlanSummary  String?  // 適用した学習プラン（LLM生成方針）。メイン画面で表示
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+/// プラン適用・診断結果の履歴。生成AIのコンテキスト・パーソナライズ精度向上用
+model LearningHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  kind      String   // "plan_apply" | "diagnosis"
+  payload   String   // JSON: プロンプト設定・診断結果・適用プラン等
+  createdAt DateTime @default(now())
 }
 
 /// 閲覧履歴（ニュース・トピック等）。パーソナライズ精度向上用

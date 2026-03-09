@@ -105,6 +105,7 @@ export function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [bannerSettings, setBannerSettings] =
     useState<BannerSettings>(DEFAULT_BANNER_SETTINGS);
+  const [appliedPlanSummary, setAppliedPlanSummary] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/settings")
@@ -118,6 +119,7 @@ export function DashboardContent() {
             displayMode: json.settings.displayMode ?? "standard",
             displayVolume: json.settings.displayVolume ?? "simple",
           });
+          setAppliedPlanSummary(json.settings.appliedPlanSummary ?? "");
         }
       })
       .catch(() => {});
@@ -182,6 +184,17 @@ export function DashboardContent() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <IntelligentBanner settings={bannerSettings} />
+      {appliedPlanSummary && (
+        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3">
+          <p className="text-xs font-semibold text-emerald-800">
+            現在の学習プラン
+          </p>
+          <p className="mt-1 text-sm text-emerald-900/90">
+            {appliedPlanSummary.slice(0, 120)}
+            {appliedPlanSummary.length > 120 ? "…" : ""}
+          </p>
+        </div>
+      )}
       {status && (
         <div className="flex items-center justify-center">
           <span

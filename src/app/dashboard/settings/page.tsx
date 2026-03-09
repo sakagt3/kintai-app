@@ -2,8 +2,10 @@
 
 /**
  * 設定画面: 表示カスタマイズ・表示ボリューム・トピック選択・学習目標・クイズ出題数・プロフィールをDBに保存。
+ * プラン適用（即時反映）・1分クイック診断・トピック vs 問題形式のトグル対応。
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Settings, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { TOPICS } from "@/lib/topics";
@@ -13,6 +15,7 @@ import { QuickDiagnosis } from "./QuickDiagnosis";
 type DisplayMode = "standard" | "detail_special" | "detail_news";
 type DisplayVolume = "simple" | "detailed";
 type LearningLevel = "beginner" | "intermediate" | "advanced" | "pro";
+type ContentFocus = "topic" | "quiz";
 
 type SettingsState = {
   showSpecialDay: boolean;
@@ -24,6 +27,8 @@ type SettingsState = {
   customLearningGoal: string;
   dailyQuizCount: number;
   learningLevel: LearningLevel;
+  contentFocus: ContentFocus;
+  appliedPlanSummary: string;
 };
 
 type ProfileState = {
@@ -44,8 +49,13 @@ export default function SettingsPage() {
     customLearningGoal: "",
     dailyQuizCount: 5,
     learningLevel: "intermediate",
+    contentFocus: "topic",
+    appliedPlanSummary: "",
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
+  const [diagnosisPreviewText, setDiagnosisPreviewText] = useState("");
+  const [showQuickDiagnosis, setShowQuickDiagnosis] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/settings")
@@ -75,6 +85,9 @@ export default function SettingsPage() {
               )
                 ? data.settings.learningLevel
                 : "intermediate",
+            contentFocus:
+              data.settings.contentFocus === "quiz" ? "quiz" : "topic",
+            appliedPlanSummary: data.settings.appliedPlanSummary ?? "",
           });
         }
         if (data.profile) {
@@ -103,6 +116,7 @@ export default function SettingsPage() {
         customLearningGoal: settings.customLearningGoal || undefined,
         dailyQuizCount: settings.dailyQuizCount,
         learningLevel: settings.learningLevel,
+        contentFocus: settings.contentFocus,
         name: profile.name,
       }),
     })
@@ -112,6 +126,56 @@ export default function SettingsPage() {
       })
       .catch(() => toast.error("設定の保存に失敗しました。"))
       .finally(() => setSaving(false));
+  };
+
+  const handleApply = async (planText: string) => {
+    const summary =
+      planText.slice(0, 200) + (planText.length > 200 ? "…" : "");
+    const res = await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customLearningGoal: settings.customLearningGoal || undefined,
+        learningLevel: settings.learningLevel,
+        preferredTopicIds: settings.preferredTopicIds,
+        contentFocus: settings.contentFocus,
+        appliedPlanSummary: summary,
+      }),
+    });
+    if (!res.ok) throw new Error("設定の保存に失敗しました。");
+    await fetch("/api/learning-history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "plan_apply",
+        payload: {
+          goal: settings.customLearningGoal,
+          level: settings.learningLevel,
+          topics: settings.preferredTopicIds,
+          contentFocus: settings.contentFocus,
+          planSummary: summary,
+        },
+      }),
+    });
+    toast.success("プランを適用しました。メイン画面に反映されます。");
+    router.push("/dashboard");
+    router.refresh();
+  };
+
+  const handleDiagnosisResult = (
+    level: "beginner" | "intermediate" | "advanced" | "pro",
+    message: string
+  ) => {
+    setSettings((s) => ({ ...s, learningLevel: level }));
+    setDiagnosisPreviewText(message);
+    fetch("/api/learning-history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "diagnosis",
+        payload: { level, message },
+      }),
+    }).catch(() => {});
   };
 
   if (loading) {
@@ -290,32 +354,82 @@ export default function SettingsPage() {
             </label>
           ))}
         </div>
+        {/* トピック中心 vs 問題形式 */}
+        <div className="mb-4">
+          <label className="mb-2 block text-xs font-medium text-gray-600">
+            コンテンツの重心
+          </label>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="contentFocus"
+                checked={settings.contentFocus === "topic"}
+                onChange={() =>
+                  setSettings((s) => ({ ...s, contentFocus: "topic" }))
+                }
+                className="h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+              />
+              <span className="text-sm">トピック中心（解説重視）</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="contentFocus"
+                checked={settings.contentFocus === "quiz"}
+                onChange={() =>
+                  setSettings((s) => ({ ...s, contentFocus: "quiz" }))
+                }
+                className="h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+              />
+              <span className="text-sm">問題形式（クイズ重視）</span>
+            </label>
+          </div>
+        </div>
+
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">
             自由記述で学びたいこと（例: TOEIC 800点を目指すための単語）
           </label>
-          <textarea
-            value={settings.customLearningGoal}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
-            }
-            placeholder="例: TOEIC 800点を目指すための単語"
-            rows={2}
-            className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
-          />
+          <div className="flex flex-wrap items-start gap-2">
+            <textarea
+              value={settings.customLearningGoal}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
+              }
+              placeholder="例: TOEIC 800点を目指すための単語"
+              rows={2}
+              className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
+            />
+            <button
+              type="button"
+              onClick={() => setShowQuickDiagnosis(true)}
+              className="shrink-0 rounded-lg bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
+            >
+              AIにレベルを判定してもらう
+            </button>
+          </div>
         </div>
+
+        {showQuickDiagnosis && (
+          <div className="mt-4">
+            <QuickDiagnosis
+              triggerLabel="AIにレベルを判定してもらう"
+              onResult={handleDiagnosisResult}
+            />
+          </div>
+        )}
 
         {/* インタラクティブ・プランプレビュー */}
         <div className="mt-4">
           <PlanPreview
             goal={settings.customLearningGoal}
             level={settings.learningLevel}
+            contentFocus={settings.contentFocus}
+            appliedPlanSummary={settings.appliedPlanSummary}
+            previewOverrideText={diagnosisPreviewText}
+            onApply={handleApply}
           />
-        </div>
-
-        {/* 1分クイック診断 */}
-        <div className="mt-4">
-          <QuickDiagnosis />
         </div>
       </section>
 

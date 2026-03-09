@@ -1,25 +1,41 @@
 "use client";
 
 /**
- * 学習目標・レベルに応じてAIが「明日のクイズ3問」と「ニュース解説サンプル」をストリーミング表示。
- * タイピング風アニメーションと「AIがあなたのためのプランを構築中...」演出。
+ * 学習プラン・プレビュー（ストリーミング）。contentFocus でトピック中心 vs クイズ重視を切り替え。
+ * 「このプランを適用して開始する」でDB保存・メイン画面へ即時反映。
  */
 import { useState, useCallback, useRef } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle } from "lucide-react";
 
 type Level = "beginner" | "intermediate" | "advanced" | "pro";
+type ContentFocus = "topic" | "quiz";
 
 type Props = {
   goal: string;
   level: Level;
+  contentFocus: ContentFocus;
   onStart?: () => void;
   onDone?: () => void;
+  onApply?: (planText: string) => Promise<void>;
+  appliedPlanSummary?: string;
+  /** 診断結果などでプレビューを自動書き換えたテキスト */
+  previewOverrideText?: string;
 };
 
-export function PlanPreview({ goal, level, onStart, onDone }: Props) {
+export function PlanPreview({
+  goal,
+  level,
+  contentFocus,
+  onStart,
+  onDone,
+  onApply,
+  appliedPlanSummary,
+  previewOverrideText,
+}: Props) {
   const [streaming, setStreaming] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
+  const [applying, setApplying] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const runPreview = useCallback(async () => {
@@ -34,7 +50,11 @@ export function PlanPreview({ goal, level, onStart, onDone }: Props) {
       const res = await fetch("/api/ai/plan-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal: goal || "ビジネス教養", level }),
+        body: JSON.stringify({
+          goal: goal || "ビジネス教養",
+          level,
+          contentFocus,
+        }),
         signal: abortRef.current.signal,
       });
 
@@ -61,7 +81,19 @@ export function PlanPreview({ goal, level, onStart, onDone }: Props) {
       setStreaming(false);
       abortRef.current = null;
     }
-  }, [goal, level, streaming, onStart, onDone]);
+  }, [goal, level, contentFocus, streaming, onStart, onDone]);
+
+  const displayText = text || previewOverrideText || "";
+
+  const handleApply = async () => {
+    if (!displayText.trim() || applying || !onApply) return;
+    setApplying(true);
+    try {
+      await onApply(displayText);
+    } finally {
+      setApplying(false);
+    }
+  };
 
   return (
     <div className="rounded-xl border border-violet-200/80 bg-violet-50/50 p-4">
@@ -96,10 +128,34 @@ export function PlanPreview({ goal, level, onStart, onDone }: Props) {
         </p>
       )}
 
-      {text && (
-        <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-white/80 p-3 text-[13px] leading-relaxed text-gray-800">
-          {text}
-        </pre>
+      {displayText && (
+        <>
+          <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-white/80 p-3 text-[13px] leading-relaxed text-gray-800">
+            {displayText}
+          </pre>
+          {onApply && (
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={applying}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {applying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              このプランを適用して開始する
+            </button>
+          )}
+        </>
+      )}
+
+      {appliedPlanSummary && !displayText && (
+        <p className="rounded bg-white/80 p-2 text-xs text-gray-600">
+          適用中: {appliedPlanSummary.slice(0, 80)}
+          {appliedPlanSummary.length > 80 ? "…" : ""}
+        </p>
       )}
 
       {error && (
