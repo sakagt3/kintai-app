@@ -26,11 +26,28 @@ function getLast7DaysDateStrings() {
   return dates;
 }
 
+/** 空の勤怠レスポンス（認証・DB 失敗時もクライアントが同じ形で受け取り表示エラーを防ぐ） */
+function emptyAttendanceResponse() {
+  const today = getTodayDateString();
+  const last7Dates = getLast7DaysDateStrings();
+  return NextResponse.json({
+    today: {
+      date: today,
+      clockIn: null,
+      clockOut: null,
+      breakStart: null,
+      breakEnd: null,
+    },
+    last7Dates,
+    historyByDate: {} as Record<string, { clockIn: string | null; clockOut: string | null; breakStart: string | null; breakEnd: string | null }>,
+  });
+}
+
 export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+      return emptyAttendanceResponse();
     }
     const today = getTodayDateString();
     const last7Dates = getLast7DaysDateStrings();
@@ -76,10 +93,7 @@ export async function GET() {
     });
   } catch (e) {
     console.error("[GET /api/attendance]", e);
-    return NextResponse.json(
-      { error: "勤怠データの取得に失敗しました。" },
-      { status: 500 },
-    );
+    return emptyAttendanceResponse();
   }
 }
 

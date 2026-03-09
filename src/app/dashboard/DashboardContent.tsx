@@ -276,25 +276,20 @@ export function DashboardContent() {
       const res = await fetch("/api/attendance");
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // 401/500 でも画面は落とさず空状態で表示（トーストのみ）
-        const msg = res.status === 401
-          ? "認証の有効期限が切れている可能性があります。再読み込みするか、一度ログアウトして再度ログインしてください。"
-          : (json?.error ?? "勤怠データの取得に失敗しました。");
-        toast.error(msg);
         setData(null);
         setLoading(false);
+        toast.error(json?.error ?? "勤怠データの取得に失敗しました。");
         return;
       }
-      setData(
+      // API は失敗時も 200 で空データを返すため、常に同じ形が来る
+      const body =
         json?.today != null || json?.last7Dates != null || json?.historyByDate != null
           ? json
-          : null
-      );
+          : null;
+      setData(body);
     } catch {
-      toast.error(
-        "通信エラーが発生しました。しばらく経ってからお試しください。",
-      );
       setData(null);
+      toast.error("通信エラーが発生しました。しばらく経ってからお試しください。");
     } finally {
       setLoading(false);
     }
