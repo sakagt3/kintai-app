@@ -1,15 +1,21 @@
-import { auth } from "@/auth"
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { LayoutDashboard, History, CalendarPlus, Settings, LogOut } from "lucide-react"
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import {
+  LayoutDashboard,
+  History,
+  CalendarPlus,
+  Settings,
+  LogOut,
+} from "lucide-react";
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const session = await auth()
-  if (!session) redirect("/login")
+  const session = await auth();
+  if (!session) redirect("/login");
 
   return (
     <div className="flex min-h-screen bg-[#f5f6f7]">
@@ -54,9 +60,9 @@ export default async function DashboardLayout({
           <div className="border-t border-white/10 p-3">
             <form
               action={async () => {
-                "use server"
-                const { signOut } = await import("@/auth")
-                await signOut()
+                "use server";
+                const { signOut } = await import("@/auth");
+                await signOut();
               }}
             >
               <button
@@ -70,9 +76,7 @@ export default async function DashboardLayout({
           </div>
         </div>
       </aside>
-      <main className="ml-56 flex min-w-0 flex-1 flex-col">
-        {children}
-      </main>
+      <main className="ml-56 flex min-w-0 flex-1 flex-col">{children}</main>
     </div>
-  )
+  );
 }

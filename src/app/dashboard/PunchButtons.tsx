@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-import { toast } from "sonner"
-import { LogIn, LogOut, Loader2 } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { LogIn, LogOut, Loader2 } from "lucide-react";
 
-type PunchType = "CLOCK_IN" | "CLOCK_OUT"
+type PunchType = "CLOCK_IN" | "CLOCK_OUT";
 
 export function PunchButtons() {
-  const [loading, setLoading] = useState<PunchType | null>(null)
-  const [error, setError] = useState("")
-  const router = useRouter()
+  const [loading, setLoading] = useState<PunchType | null>(null);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
   const handlePunch = async (type: PunchType) => {
-    setError("")
-    setLoading(type)
+    setError("");
+    setLoading(type);
 
-    const onFinish = () => setLoading(null)
+    const onFinish = () => setLoading(null);
 
     const sendPunch = (latitude?: number, longitude?: number) => {
       fetch("/api/attendance", {
@@ -30,35 +30,35 @@ export function PunchButtons() {
         }),
       })
         .then(async (res) => {
-          const data = await res.json().catch(() => ({}))
+          const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(data.error ?? "打刻に失敗しました。")
+            throw new Error(data.error ?? "打刻に失敗しました。");
           }
-          const isIn = type === "CLOCK_IN"
+          const isIn = type === "CLOCK_IN";
           toast.success(
             isIn ? "出勤を記録しました。" : "退勤を記録しました。",
-            { description: "再度押すと時刻を上書きできます。" }
-          )
-          router.refresh()
+            { description: "再度押すと時刻を上書きできます。" },
+          );
+          router.refresh();
         })
         .catch((err) => {
-          const msg = err.message ?? "打刻に失敗しました。"
-          setError(msg)
-          toast.error(msg)
+          const msg = err.message ?? "打刻に失敗しました。";
+          setError(msg);
+          toast.error(msg);
         })
-        .finally(onFinish)
-    }
+        .finally(onFinish);
+    };
 
     if (typeof navigator !== "undefined" && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => sendPunch(pos.coords.latitude, pos.coords.longitude),
         () => sendPunch(),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      )
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      );
     } else {
-      sendPunch()
+      sendPunch();
     }
-  }
+  };
 
   return (
     <>
@@ -100,5 +100,5 @@ export function PunchButtons() {
         </p>
       )}
     </>
-  )
+  );
 }

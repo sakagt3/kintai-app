@@ -1,4 +1,4 @@
-import { Settings } from "lucide-react"
+import { Settings } from "lucide-react";
 
 export default function SettingsPage() {
   return (
@@ -11,5 +11,5 @@ export default function SettingsPage() {
         <p className="mt-3 text-sm text-gray-500">設定画面は準備中です。</p>
       </div>
     </div>
-  )
+  );
 }

@@ -1,23 +1,26 @@
-import type { Metadata } from "next"
-import { Toaster } from "sonner"
-import { Noto_Sans_JP } from "next/font/google"
-import "./globals.css"
+/**
+ * ルートレイアウト: フォント・メタデータ・グローバルな Toaster（Sonner）を設定する
+ */
+import type { Metadata } from "next";
+import { Toaster } from "sonner";
+import { Noto_Sans_JP } from "next/font/google";
+import "./globals.css";
 
 const notoSansJP = Noto_Sans_JP({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-})
+});
 
 export const metadata: Metadata = {
   title: "勤怠管理システム",
   description: "シンプルで使いやすい勤怠管理",
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="ja" className={notoSansJP.variable} suppressHydrationWarning>
@@ -33,5 +36,5 @@ export default function RootLayout({
         />
       </body>
     </html>
-  )
+  );
 }
