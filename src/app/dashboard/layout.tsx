@@ -1,0 +1,71 @@
+import { auth } from "@/auth"
+import { redirect } from "next/navigation"
+import Link from "next/link"
+import { LayoutDashboard, History, Settings, LogOut } from "lucide-react"
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const session = await auth()
+  if (!session) redirect("/login")
+
+  return (
+    <div className="flex min-h-screen bg-[#f5f6f7]">
+      <aside className="fixed inset-y-0 left-0 z-30 w-56 border-r border-[#1e3a5f]/20 bg-[#1e3a5f] text-white">
+        <div className="flex h-full flex-col">
+          <div className="border-b border-white/10 px-4 py-5">
+            <h1 className="text-lg font-bold tracking-tight">勤怠管理</h1>
+            <p className="mt-1 truncate text-xs text-white/70">
+              {session.user?.name ?? session.user?.email}
+            </p>
+          </div>
+          <nav className="flex-1 space-y-0.5 p-3">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white bg-white/10"
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              ダッシュボード
+            </Link>
+            <Link
+              href="/dashboard#history"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
+            >
+              <History className="h-5 w-5" />
+              打刻履歴
+            </Link>
+            <Link
+              href="/dashboard/settings"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
+            >
+              <Settings className="h-5 w-5" />
+              設定
+            </Link>
+          </nav>
+          <div className="border-t border-white/10 p-3">
+            <form
+              action={async () => {
+                "use server"
+                const { signOut } = await import("@/auth")
+                await signOut()
+              }}
+            >
+              <button
+                type="submit"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
+              >
+                <LogOut className="h-5 w-5" />
+                ログアウト
+              </button>
+            </form>
+          </div>
+        </div>
+      </aside>
+      <main className="ml-56 flex min-w-0 flex-1 flex-col">
+        {children}
+      </main>
+    </div>
+  )
+}
