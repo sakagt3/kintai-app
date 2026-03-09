@@ -17,6 +17,22 @@ function parseTopicIds(v: unknown): string[] | undefined {
   return arr.length ? arr : undefined;
 }
 
+const CARD_ORDER_KEYS = ["quiz", "news", "appliedPlan", "forgettingCurve"] as const;
+
+function parseCardOrder(v: string | null | undefined): string[] {
+  if (!v) return [...CARD_ORDER_KEYS];
+  try {
+    const parsed = JSON.parse(v) as unknown;
+    if (!Array.isArray(parsed)) return [...CARD_ORDER_KEYS];
+    const valid = parsed.filter((x) => typeof x === "string" && CARD_ORDER_KEYS.includes(x as (typeof CARD_ORDER_KEYS)[number]));
+    const set = new Set(valid);
+    const rest = CARD_ORDER_KEYS.filter((k) => !set.has(k));
+    return valid.length ? [...valid, ...rest] : [...CARD_ORDER_KEYS];
+  } catch {
+    return [...CARD_ORDER_KEYS];
+  }
+}
+
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -61,6 +77,7 @@ export async function GET() {
     }
   }
 
+  const cardOrder = (settings as { dashboardCardOrder?: string | null }).dashboardCardOrder;
   return NextResponse.json({
     settings: {
       showSpecialDay: settings.showSpecialDay,
@@ -75,6 +92,7 @@ export async function GET() {
       learningLevel: settings.learningLevel ?? "intermediate",
       contentFocus: settings.contentFocus ?? "topic",
       appliedPlanSummary: settings.appliedPlanSummary ?? "",
+      dashboardCardOrder: parseCardOrder(cardOrder),
     },
     profile: {
       name: user?.name ?? "",
@@ -140,11 +158,20 @@ export async function PATCH(request: Request) {
     typeof raw.appliedPlanSummary === "string"
       ? raw.appliedPlanSummary.trim() || null
       : undefined;
+  const rawCardOrder = raw.dashboardCardOrder;
+  const cardOrderArr = Array.isArray(rawCardOrder)
+    ? (rawCardOrder as unknown[]).filter((x) => typeof x === "string")
+    : undefined;
+  const cardOrderStr =
+    cardOrderArr && cardOrderArr.length > 0
+      ? JSON.stringify(parseCardOrder(JSON.stringify(cardOrderArr)))
+      : undefined;
   const name = typeof raw.name === "string" ? raw.name.trim() : undefined;
 
   const userId = session.user.id;
 
-  await prisma.userSettings.upsert({
+  try {
+    await prisma.userSettings.upsert({
     where: { userId },
     create: {
       userId,
@@ -164,6 +191,7 @@ export async function PATCH(request: Request) {
       learningLevel: (learningLevel as (typeof LEARNING_LEVELS)[number]) ?? "intermediate",
       contentFocus: (contentFocus as (typeof CONTENT_FOCUS)[number]) ?? "topic",
       appliedPlanSummary: appliedPlanSummary ?? null,
+      dashboardCardOrder: null,
     },
     update: {
       ...(showSpecialDay !== undefined && { showSpecialDay }),
@@ -185,8 +213,19 @@ export async function PATCH(request: Request) {
       ...(learningLevel !== undefined && { learningLevel }),
       ...(contentFocus !== undefined && { contentFocus }),
       ...(appliedPlanSummary !== undefined && { appliedPlanSummary }),
+      ...(cardOrderStr !== undefined && { dashboardCardOrder: cardOrderStr }),
     },
   });
+  } catch (e) {
+    console.error("Settings PATCH failed:", e);
+    return NextResponse.json(
+      {
+        error:
+          "設定の保存に失敗しました。データベースのマイグレーション（npx prisma db push）が必要な場合があります。",
+      },
+      { status: 500 }
+    );
+  }
 
   if (name !== undefined) {
     await prisma.user.update({

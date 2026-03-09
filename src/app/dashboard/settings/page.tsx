@@ -125,46 +125,52 @@ export default function SettingsPage() {
         name: profile.name,
       }),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("保存に失敗しました。");
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? "保存に失敗しました。");
         toast.success("設定を保存しました。");
       })
-      .catch(() => toast.error("設定の保存に失敗しました。"))
+      .catch((err: Error) => toast.error(err.message ?? "設定の保存に失敗しました。"))
       .finally(() => setSaving(false));
   };
 
   const handleApply = async (planText: string) => {
     const summary =
       planText.slice(0, 2000) + (planText.length > 2000 ? "…" : "");
-    const res = await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customLearningGoal: settings.customLearningGoal || undefined,
-        learningLevel: settings.learningLevel,
-        preferredTopicIds: settings.preferredTopicIds,
-        contentFocus: settings.contentFocus,
-        appliedPlanSummary: summary,
-      }),
-    });
-    if (!res.ok) throw new Error("設定の保存に失敗しました。");
-    await fetch("/api/learning-history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        kind: "plan_apply",
-        payload: {
-          goal: settings.customLearningGoal,
-          level: settings.learningLevel,
-          topics: settings.preferredTopicIds,
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customLearningGoal: settings.customLearningGoal || undefined,
+          learningLevel: settings.learningLevel,
+          preferredTopicIds: settings.preferredTopicIds,
           contentFocus: settings.contentFocus,
-          planSummary: summary,
-        },
-      }),
-    });
-    toast.success("設定を保存し、ダッシュボードに反映しました！");
-    router.push("/dashboard");
-    router.refresh();
+          appliedPlanSummary: summary,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "設定の保存に失敗しました。");
+      await fetch("/api/learning-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "plan_apply",
+          payload: {
+            goal: settings.customLearningGoal,
+            level: settings.learningLevel,
+            topics: settings.preferredTopicIds,
+            contentFocus: settings.contentFocus,
+            planSummary: summary,
+          },
+        }),
+      });
+      toast.success("設定を保存し、ダッシュボードに反映しました！");
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "設定の保存に失敗しました。");
+    }
   };
 
   const handlePlanCreate = async () => {
@@ -276,17 +282,6 @@ export default function SettingsPage() {
               className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
             />
           </label>
-          <label className="flex cursor-pointer items-center justify-between gap-4">
-            <span className="text-sm text-gray-700">自分だけの学習プランを表示</span>
-            <input
-              type="checkbox"
-              checked={settings.showAppliedPlan}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, showAppliedPlan: e.target.checked }))
-              }
-              className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-            />
-          </label>
         </div>
         <div className="mt-4 pt-4 border-t border-gray-100">
           <p className="mb-2 text-xs font-medium text-gray-600">表示ボリューム</p>
@@ -319,20 +314,29 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* 忘却曲線キャッチコピー */}
-      <section className="rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 to-orange-50/60 p-6">
-        <p className="text-center text-sm font-semibold tracking-wide text-amber-900/90">
-          科学的根拠に基づいた忘却曲線アルゴリズムが、
-          <br />
-          あなたの定着度を最大化します
-        </p>
-      </section>
+      <p className="text-center text-xs text-gray-500">
+        科学的根拠に基づいた忘却曲線で復習タイミングを最適化します。
+      </p>
 
-      {/* プラン選択の2段構え：A. 選択式 / B. 生成AI式 */}
+      {/* 自分だけのプラン表示トグル ＋ プラン選択（A. 選択式 / B. 生成AI式） */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
           学習プラン（パーソナライズ）
         </h2>
+        <label className="mb-4 flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
+          <span className="text-sm font-medium text-gray-700">自分だけの学習プランを表示</span>
+          <input
+            type="checkbox"
+            checked={settings.showAppliedPlan}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, showAppliedPlan: e.target.checked }))
+            }
+            className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+          />
+        </label>
+        <p className="mb-4 text-xs text-gray-500">
+          このトグルをONにすると、以下の設定がダッシュボードに反映されます。
+        </p>
 
         {/* 4段階レベル */}
         <div className="mb-4">
