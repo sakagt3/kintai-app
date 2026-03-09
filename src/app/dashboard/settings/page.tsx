@@ -132,7 +132,7 @@ export default function SettingsPage() {
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? "保存に失敗しました。");
-        toast.success("設定を反映しました");
+        toast.success("設定を保存し、ダッシュボードを更新しました");
         router.refresh();
       })
       .catch((err: Error) => toast.error(err.message ?? "設定の保存に失敗しました。"))

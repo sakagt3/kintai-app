@@ -40,12 +40,27 @@ export async function POST(request: Request) {
   const hashedPassword = hashSync(password, 10);
 
   try {
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email: emailLower,
         name: name?.trim() || null,
         password: hashedPassword,
         role: "member",
+      },
+    });
+
+    await prisma.userSettings.create({
+      data: {
+        userId: user.id,
+        showSpecialDay: true,
+        showAiNews: true,
+        showAiTerm: true,
+        showAppliedPlan: true,
+        displayMode: "standard",
+        displayVolume: "simple",
+        dailyQuizCount: 5,
+        learningLevel: "intermediate",
+        contentFocus: "topic",
       },
     });
   } catch (e) {

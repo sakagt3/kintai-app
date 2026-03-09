@@ -11,6 +11,7 @@ import { TodayAiContent } from "./TodayAiContent";
 import { getTodaysAiNews } from "@/lib/aiNews";
 import { getTodaysSpecialDay } from "@/lib/specialDays";
 import { getTodaysAiTerm } from "@/lib/aiTerms";
+import { TOPICS } from "@/lib/topics";
 import Link from "next/link";
 import {
   FileText,
@@ -210,6 +211,7 @@ export function DashboardContent() {
   const [showSpecialDay, setShowSpecialDay] = useState(true);
   const [showAiNews, setShowAiNews] = useState(true);
   const [showAiTerm, setShowAiTerm] = useState(true);
+  const [preferredTopicIds, setPreferredTopicIds] = useState<string[]>([]);
 
   const fetchSettings = useCallback(() => {
     fetch("/api/settings")
@@ -222,6 +224,11 @@ export function DashboardContent() {
           setShowSpecialDay(json.settings.showSpecialDay ?? true);
           setShowAiNews(json.settings.showAiNews ?? true);
           setShowAiTerm(json.settings.showAiTerm ?? true);
+          setPreferredTopicIds(
+            Array.isArray(json.settings.preferredTopicIds)
+              ? json.settings.preferredTopicIds
+              : [],
+          );
         }
       })
       .catch(() => {});
@@ -294,8 +301,17 @@ export function DashboardContent() {
     : null;
 
   const hasPlan = !!(appliedPlanSummary && appliedPlanSummary.trim());
-  const learningCardTitle =
-    (customQuizName || "今日のカスタムクイズ").trim() || "今日のカスタムクイズ";
+  const learningCardTitle = (() => {
+    const custom = (customQuizName || "").trim();
+    if (custom) return custom;
+    if (preferredTopicIds?.length > 0) {
+      const labels = TOPICS.filter((t) => preferredTopicIds.includes(t.id)).map(
+        (t) => t.label,
+      );
+      return labels.length > 0 ? labels.join("・") : "今日のカスタムクイズ";
+    }
+    return "今日のカスタムクイズ";
+  })();
 
   return (
     <div className="flex flex-1 flex-col gap-8 p-6 md:p-8">
