@@ -7,9 +7,12 @@ import { useEffect, useState } from "react";
 import { Settings, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { TOPICS } from "@/lib/topics";
+import { PlanPreview } from "./PlanPreview";
+import { QuickDiagnosis } from "./QuickDiagnosis";
 
 type DisplayMode = "standard" | "detail_special" | "detail_news";
 type DisplayVolume = "simple" | "detailed";
+type LearningLevel = "beginner" | "intermediate" | "advanced" | "pro";
 
 type SettingsState = {
   showSpecialDay: boolean;
@@ -20,6 +23,7 @@ type SettingsState = {
   preferredTopicIds: string[];
   customLearningGoal: string;
   dailyQuizCount: number;
+  learningLevel: LearningLevel;
 };
 
 type ProfileState = {
@@ -39,6 +43,7 @@ export default function SettingsPage() {
     preferredTopicIds: [],
     customLearningGoal: "",
     dailyQuizCount: 5,
+    learningLevel: "intermediate",
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
 
@@ -64,6 +69,12 @@ export default function SettingsPage() {
               typeof data.settings.dailyQuizCount === "number"
                 ? Math.min(20, Math.max(1, data.settings.dailyQuizCount))
                 : 5,
+            learningLevel:
+              ["beginner", "intermediate", "advanced", "pro"].includes(
+                data.settings.learningLevel
+              )
+                ? data.settings.learningLevel
+                : "intermediate",
           });
         }
         if (data.profile) {
@@ -91,6 +102,7 @@ export default function SettingsPage() {
         preferredTopicIds: settings.preferredTopicIds,
         customLearningGoal: settings.customLearningGoal || undefined,
         dailyQuizCount: settings.dailyQuizCount,
+        learningLevel: settings.learningLevel,
         name: profile.name,
       }),
     })
@@ -205,14 +217,56 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* 忘却曲線キャッチコピー */}
+      <section className="rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 to-orange-50/60 p-6">
+        <p className="text-center text-sm font-semibold tracking-wide text-amber-900/90">
+          科学的根拠に基づいた忘却曲線アルゴリズムが、
+          <br />
+          あなたの定着度を最大化します
+        </p>
+      </section>
+
       {/* トピック選択・学習目標（LLM連携基盤） */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
           興味トピック・学習目標（パーソナライズ）
         </h2>
         <p className="mb-3 text-xs text-gray-500">
-          興味のあるジャンルを選ぶと、コンテンツの優先度に反映されます。自由記述で「何を学びたいか」を入力すると、将来的にLLMがその要望に沿ったコンテンツを生成する基盤に連携します。
+          興味のあるジャンルを選ぶと、コンテンツの優先度に反映されます。自由記述で「何を学びたいか」を入力すると、AIがその要望に沿ったプランを生成します。
         </p>
+
+        {/* 4段階レベル */}
+        <div className="mb-4">
+          <label className="mb-2 block text-xs font-medium text-gray-600">
+            レベル（解説の深さ・専門用語の量）
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { id: "beginner", label: "初心者" },
+                { id: "intermediate", label: "中級者" },
+                { id: "advanced", label: "上級者" },
+                { id: "pro", label: "プロ" },
+              ] as const
+            ).map(({ id, label }) => (
+              <label
+                key={id}
+                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm hover:bg-gray-100"
+              >
+                <input
+                  type="radio"
+                  name="learningLevel"
+                  checked={settings.learningLevel === id}
+                  onChange={() =>
+                    setSettings((s) => ({ ...s, learningLevel: id }))
+                  }
+                  className="h-3.5 w-3.5 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
         <div className="mb-4 flex flex-wrap gap-2">
           {TOPICS.map((t) => (
             <label
@@ -249,6 +303,19 @@ export default function SettingsPage() {
             rows={2}
             className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
           />
+        </div>
+
+        {/* インタラクティブ・プランプレビュー */}
+        <div className="mt-4">
+          <PlanPreview
+            goal={settings.customLearningGoal}
+            level={settings.learningLevel}
+          />
+        </div>
+
+        {/* 1分クイック診断 */}
+        <div className="mt-4">
+          <QuickDiagnosis />
         </div>
       </section>
 

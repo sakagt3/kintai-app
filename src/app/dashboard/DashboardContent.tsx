@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { PunchPanel } from "./PunchPanel";
 import { IntelligentBanner } from "./IntelligentBanner";
 import { QuizPanel } from "./QuizPanel";
+import { ForgettingCurveIndicator } from "./ForgettingCurveIndicator";
 import type { BannerSettings } from "./IntelligentBanner";
 import { FileText, Calendar } from "lucide-react";
 
@@ -206,6 +207,8 @@ export function DashboardContent() {
       )}
 
       <PunchPanel onSuccess={fetchAttendance} />
+
+      <ForgettingCurveIndicator />
 
       <QuizPanel />
 

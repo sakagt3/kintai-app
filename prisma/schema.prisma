@@ -18,6 +18,7 @@ model User {
   leaveRequests LeaveRequest[]
   settings      UserSettings?
   quizAttempts  QuizAttempt[]
+  activityLogs  ActivityLog[]
   createdAt     DateTime      @default(now())
 }
 
@@ -34,8 +35,20 @@ model UserSettings {
   preferredTopicIds   String?  // JSON array of topic ids
   customLearningGoal  String?  // 自由記述「TOEIC 800点を目指す」等 → LLM連携用
   dailyQuizCount      Int      @default(5)
+  learningLevel       String   @default("intermediate") // beginner | intermediate | advanced | pro
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+/// 閲覧履歴（ニュース・トピック等）。パーソナライズ精度向上用
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  kind      String   // "news_view" | "topic_view" | "quiz_view"
+  targetId  String?  // ニュースID・トピックID等
+  metadata  String?  // JSON
+  createdAt DateTime @default(now())
 }
 
 /// 忘却曲線に基づくクイズ回答履歴（復習タイミング計算に使用）

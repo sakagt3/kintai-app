@@ -24,6 +24,10 @@ export function QuizPanel() {
     correct: boolean;
     explanation: string;
   } | null>(null);
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [simulatorInput, setSimulatorInput] = useState("");
+  const [simulatorFeedback, setSimulatorFeedback] = useState("");
+  const [simulatorLoading, setSimulatorLoading] = useState(false);
 
   const fetchToday = useCallback(async () => {
     try {
@@ -83,8 +87,34 @@ export function QuizPanel() {
 
   const goNext = () => {
     setResult(null);
+    setSimulatorOpen(false);
+    setSimulatorInput("");
+    setSimulatorFeedback("");
     if (index + 1 < questions.length) setIndex(index + 1);
     else setQuestions([]);
+  };
+
+  const requestSalesFeedback = async () => {
+    if (!result?.explanation || !simulatorInput.trim() || simulatorLoading) return;
+    setSimulatorLoading(true);
+    setSimulatorFeedback("");
+    try {
+      const res = await fetch("/api/ai/sales-simulator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          concept: result.explanation,
+          userExplanation: simulatorInput.trim(),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) setSimulatorFeedback(json.feedback ?? "");
+      else toast.error(json.error ?? "取得に失敗しました");
+    } catch {
+      toast.error("通信エラー");
+    } finally {
+      setSimulatorLoading(false);
+    }
   };
 
   if (loading) return null;
@@ -119,6 +149,47 @@ export function QuizPanel() {
           <p className="text-sm leading-relaxed text-gray-700">
             {result.explanation}
           </p>
+
+          {result.correct && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4">
+              <p className="mb-2 text-xs font-semibold text-sky-900">
+                じゃあ、この知識を使って客先に15秒で説明してみて
+              </p>
+              {!simulatorOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setSimulatorOpen(true)}
+                  className="text-xs text-sky-600 underline"
+                >
+                  営業トーク・シミュレーターを開く
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <textarea
+                    value={simulatorInput}
+                    onChange={(e) => setSimulatorInput(e.target.value)}
+                    placeholder="お客様に説明するつもりで書いてみましょう（1〜3文）"
+                    rows={3}
+                    className="w-full rounded border border-sky-200 px-2 py-1.5 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={requestSalesFeedback}
+                    disabled={simulatorLoading}
+                    className="rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                  >
+                    {simulatorLoading ? "送信中..." : "フィードバックをもらう"}
+                  </button>
+                  {simulatorFeedback && (
+                    <p className="mt-2 rounded bg-white/80 p-2 text-xs text-gray-800">
+                      {simulatorFeedback}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={goNext}

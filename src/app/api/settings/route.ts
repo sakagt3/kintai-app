@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 const DISPLAY_MODES = ["standard", "detail_special", "detail_news"] as const;
 const DISPLAY_VOLUMES = ["simple", "detailed"] as const;
+const LEARNING_LEVELS = ["beginner", "intermediate", "advanced", "pro"] as const;
 
 function parseTopicIds(v: unknown): string[] | undefined {
   if (!Array.isArray(v)) return undefined;
@@ -36,6 +37,7 @@ export async function GET() {
         displayMode: "standard",
         displayVolume: "simple",
         dailyQuizCount: 5,
+        learningLevel: "intermediate",
       },
     });
   }
@@ -67,6 +69,7 @@ export async function GET() {
       preferredTopicIds,
       customLearningGoal: settings.customLearningGoal ?? "",
       dailyQuizCount: settings.dailyQuizCount ?? 5,
+      learningLevel: settings.learningLevel ?? "intermediate",
     },
     profile: {
       name: user?.name ?? "",
@@ -116,6 +119,11 @@ export async function PATCH(request: Request) {
     raw.dailyQuizCount <= 20
       ? raw.dailyQuizCount
       : undefined;
+  const learningLevel =
+    typeof raw.learningLevel === "string" &&
+    LEARNING_LEVELS.includes(raw.learningLevel as (typeof LEARNING_LEVELS)[number])
+      ? raw.learningLevel
+      : undefined;
   const name = typeof raw.name === "string" ? raw.name.trim() : undefined;
 
   const userId = session.user.id;
@@ -136,6 +144,7 @@ export async function PATCH(request: Request) {
           : null,
       customLearningGoal: customLearningGoal ?? null,
       dailyQuizCount: dailyQuizCount ?? 5,
+      learningLevel: (learningLevel as (typeof LEARNING_LEVELS)[number]) ?? "intermediate",
     },
     update: {
       ...(showSpecialDay !== undefined && { showSpecialDay }),
@@ -153,6 +162,7 @@ export async function PATCH(request: Request) {
         customLearningGoal: customLearningGoal,
       }),
       ...(dailyQuizCount !== undefined && { dailyQuizCount }),
+      ...(learningLevel !== undefined && { learningLevel }),
     },
   });
 
