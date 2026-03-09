@@ -10,6 +10,9 @@ import {
   Shield,
 } from "lucide-react";
 
+/** auth() が headers を使うため静的生成を無効化 */
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {

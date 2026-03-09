@@ -91,7 +91,9 @@ export async function GET() {
       } catch (createErr) {
         console.error("[GET /api/settings] create failed:", createErr);
         const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }).catch(() => null);
-        return defaultSettingsResponse(user ?? undefined);
+        return defaultSettingsResponse(
+          user ? { name: user.name ?? undefined, email: user.email } : undefined
+        );
       }
     }
 
