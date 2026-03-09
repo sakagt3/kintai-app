@@ -21,6 +21,7 @@ type SettingsState = {
   showSpecialDay: boolean;
   showAiNews: boolean;
   showAiTerm: boolean;
+  showAppliedPlan: boolean;
   displayMode: DisplayMode;
   displayVolume: DisplayVolume;
   preferredTopicIds: string[];
@@ -43,6 +44,7 @@ export default function SettingsPage() {
     showSpecialDay: true,
     showAiNews: true,
     showAiTerm: true,
+    showAppliedPlan: true,
     displayMode: "standard",
     displayVolume: "simple",
     preferredTopicIds: [],
@@ -70,6 +72,7 @@ export default function SettingsPage() {
             showSpecialDay: data.settings.showSpecialDay ?? true,
             showAiNews: data.settings.showAiNews ?? true,
             showAiTerm: data.settings.showAiTerm ?? true,
+            showAppliedPlan: data.settings.showAppliedPlan ?? true,
             displayMode: data.settings.displayMode ?? "standard",
             displayVolume: data.settings.displayVolume === "detailed" ? "detailed" : "simple",
             preferredTopicIds: Array.isArray(data.settings.preferredTopicIds)
@@ -111,6 +114,7 @@ export default function SettingsPage() {
         showSpecialDay: settings.showSpecialDay,
         showAiNews: settings.showAiNews,
         showAiTerm: settings.showAiTerm,
+        showAppliedPlan: settings.showAppliedPlan,
         displayMode: settings.displayMode,
         displayVolume: settings.displayVolume,
         preferredTopicIds: settings.preferredTopicIds,
@@ -158,7 +162,7 @@ export default function SettingsPage() {
         },
       }),
     });
-    toast.success("プランを適用しました。メイン画面に反映されます。");
+    toast.success("設定を保存し、ダッシュボードに反映しました！");
     router.push("/dashboard");
     router.refresh();
   };
@@ -233,16 +237,14 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* 表示カスタマイズ */}
+      {/* 表示カスタマイズ：4つのトグル */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
           表示カスタマイズ
         </h2>
         <div className="space-y-4">
           <label className="flex cursor-pointer items-center justify-between gap-4">
-            <span className="text-sm text-gray-700">
-              今日は何の日を表示する
-            </span>
+            <span className="text-sm text-gray-700">今日は何の日を表示</span>
             <input
               type="checkbox"
               checked={settings.showSpecialDay}
@@ -253,7 +255,7 @@ export default function SettingsPage() {
             />
           </label>
           <label className="flex cursor-pointer items-center justify-between gap-4">
-            <span className="text-sm text-gray-700">AIニュースを表示する</span>
+            <span className="text-sm text-gray-700">AIニュースを表示</span>
             <input
               type="checkbox"
               checked={settings.showAiNews}
@@ -264,12 +266,23 @@ export default function SettingsPage() {
             />
           </label>
           <label className="flex cursor-pointer items-center justify-between gap-4">
-            <span className="text-sm text-gray-700">AI用語（営業向け）を表示する</span>
+            <span className="text-sm text-gray-700">AI用語学習を表示</span>
             <input
               type="checkbox"
               checked={settings.showAiTerm}
               onChange={(e) =>
                 setSettings((s) => ({ ...s, showAiTerm: e.target.checked }))
+              }
+              className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between gap-4">
+            <span className="text-sm text-gray-700">自分だけの学習プランを表示</span>
+            <input
+              type="checkbox"
+              checked={settings.showAppliedPlan}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, showAppliedPlan: e.target.checked }))
               }
               className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
             />
@@ -315,14 +328,11 @@ export default function SettingsPage() {
         </p>
       </section>
 
-      {/* トピック選択・学習目標（LLM連携基盤） */}
+      {/* プラン選択の2段構え：A. 選択式 / B. 生成AI式 */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
-          興味トピック・学習目標（パーソナライズ）
+          学習プラン（パーソナライズ）
         </h2>
-        <p className="mb-3 text-xs text-gray-500">
-          興味のあるジャンルを選ぶと、コンテンツの優先度に反映されます。自由記述で「何を学びたいか」を入力すると、AIがその要望に沿ったプランを生成します。
-        </p>
 
         {/* 4段階レベル */}
         <div className="mb-4">
@@ -356,7 +366,12 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
-        <div className="mb-4 flex flex-wrap gap-2">
+
+        <p className="mb-3 text-xs font-medium text-gray-600">A. 選択式</p>
+        <p className="mb-2 text-xs text-gray-500">
+          既存トピック（ITトレンド、経済、英語等）から選ぶと、1日の標準問題数（下で設定）で出題されます。
+        </p>
+        <div className="mb-6 flex flex-wrap gap-2">
           {TOPICS.map((t) => (
             <label
               key={t.id}
@@ -379,6 +394,11 @@ export default function SettingsPage() {
             </label>
           ))}
         </div>
+
+        <p className="mb-2 text-xs font-medium text-gray-600">B. 生成AI式</p>
+        <p className="mb-2 text-xs text-gray-500">
+          自由記述で自分専用のトピック・問題を生成します。
+        </p>
         {/* トピック中心 vs 問題形式 */}
         <div className="mb-4">
           <label className="mb-2 block text-xs font-medium text-gray-600">
@@ -416,13 +436,16 @@ export default function SettingsPage() {
           <label className="mb-1 block text-xs font-medium text-gray-600">
             自由記述で学びたいこと（例: TOEIC 800点を目指すための単語）
           </label>
+          <p className="mb-2 text-xs text-gray-500">
+            ※生成AIを利用する場合、『毎日10問』のように問題数も指定可能です。指定しない場合は1日の標準問題数（デフォルト5問）が適用されます。
+          </p>
           <div className="flex flex-wrap items-start gap-2">
             <textarea
               value={settings.customLearningGoal}
               onChange={(e) =>
                 setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
               }
-              placeholder="例: TOEIC 800点を目指すための単語"
+              placeholder="例: TOEIC 800点、毎日10問"
               rows={2}
               className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
             />
@@ -475,10 +498,10 @@ export default function SettingsPage() {
       {/* クイズ出題数 */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
-          1日のクイズ出題数
+          1日の標準問題数
         </h2>
         <p className="mb-3 text-xs text-gray-500">
-          忘却曲線に基づく復習問題を優先し、残りをランダムで出題します。
+          選択式または生成AIで問題数を指定しない場合に適用されます（デフォルト5問）。忘却曲線に基づく復習を優先し、残りをランダムで出題します。
         </p>
         <select
           value={settings.dailyQuizCount}

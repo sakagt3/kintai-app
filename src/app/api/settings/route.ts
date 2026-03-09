@@ -35,6 +35,7 @@ export async function GET() {
         showSpecialDay: true,
         showAiNews: true,
         showAiTerm: true,
+        showAppliedPlan: true,
         displayMode: "standard",
         displayVolume: "simple",
         dailyQuizCount: 5,
@@ -65,6 +66,7 @@ export async function GET() {
       showSpecialDay: settings.showSpecialDay,
       showAiNews: settings.showAiNews,
       showAiTerm: settings.showAiTerm ?? true,
+      showAppliedPlan: settings.showAppliedPlan ?? true,
       displayMode: settings.displayMode,
       displayVolume: settings.displayVolume ?? "simple",
       preferredTopicIds,
@@ -101,6 +103,8 @@ export async function PATCH(request: Request) {
     typeof raw.showAiNews === "boolean" ? raw.showAiNews : undefined;
   const showAiTerm =
     typeof raw.showAiTerm === "boolean" ? raw.showAiTerm : undefined;
+  const showAppliedPlan =
+    typeof raw.showAppliedPlan === "boolean" ? raw.showAppliedPlan : undefined;
   const displayMode =
     typeof raw.displayMode === "string" &&
     DISPLAY_MODES.includes(raw.displayMode as (typeof DISPLAY_MODES)[number])
@@ -147,6 +151,7 @@ export async function PATCH(request: Request) {
       showSpecialDay: showSpecialDay ?? true,
       showAiNews: showAiNews ?? true,
       showAiTerm: showAiTerm ?? true,
+      showAppliedPlan: showAppliedPlan ?? true,
       displayMode: (displayMode as (typeof DISPLAY_MODES)[number]) ?? "standard",
       displayVolume:
         (displayVolume as (typeof DISPLAY_VOLUMES)[number]) ?? "simple",
@@ -164,6 +169,7 @@ export async function PATCH(request: Request) {
       ...(showSpecialDay !== undefined && { showSpecialDay }),
       ...(showAiNews !== undefined && { showAiNews }),
       ...(showAiTerm !== undefined && { showAiTerm }),
+      ...(showAppliedPlan !== undefined && { showAppliedPlan }),
       ...(displayMode !== undefined && { displayMode }),
       ...(displayVolume !== undefined && { displayVolume }),
       ...(preferredTopicIds !== undefined && {

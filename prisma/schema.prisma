@@ -31,6 +31,7 @@ model UserSettings {
   showSpecialDay      Boolean  @default(true)
   showAiNews          Boolean  @default(true)
   showAiTerm          Boolean  @default(true)
+  showAppliedPlan     Boolean  @default(true)  // 自分だけの学習プランバナーを表示
   displayMode         String   @default("standard")
   displayVolume       String   @default("simple") // "simple" | "detailed"
   preferredTopicIds   String?  // JSON array of topic ids

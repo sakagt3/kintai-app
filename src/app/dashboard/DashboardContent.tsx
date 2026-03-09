@@ -107,6 +107,7 @@ export function DashboardContent() {
   const [bannerSettings, setBannerSettings] =
     useState<BannerSettings>(DEFAULT_BANNER_SETTINGS);
   const [appliedPlanSummary, setAppliedPlanSummary] = useState<string>("");
+  const [showAppliedPlan, setShowAppliedPlan] = useState(true);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -121,6 +122,7 @@ export function DashboardContent() {
             displayVolume: json.settings.displayVolume ?? "simple",
           });
           setAppliedPlanSummary(json.settings.appliedPlanSummary ?? "");
+          setShowAppliedPlan(json.settings.showAppliedPlan ?? true);
         }
       })
       .catch(() => {});
@@ -184,22 +186,14 @@ export function DashboardContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      {/* 上部: 今日の学習（左）と打刻（右）を横並び */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-4 py-2">
-            <h2 className="text-sm font-semibold text-gray-800">今日のニュース・学習</h2>
-          </div>
-          <div className="p-4">
-            <IntelligentBanner settings={bannerSettings} />
-            <div className="mt-4">
-              <TodayAiContent />
-            </div>
-          </div>
+      {/* 最上部: 打刻ボタンとステータス */}
+      <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-4 py-2">
+          <h2 className="text-sm font-semibold text-gray-800">打刻</h2>
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="p-4">
           {status && (
-            <div className="flex justify-center">
+            <div className="mb-4 flex justify-center">
               <span
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
                   status === "勤務中"
@@ -219,18 +213,24 @@ export function DashboardContent() {
               </span>
             </div>
           )}
-          <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-4 py-2">
-              <h2 className="text-sm font-semibold text-gray-800">打刻</h2>
-            </div>
-            <div className="p-4">
-              <PunchPanel onSuccess={fetchAttendance} />
-            </div>
+          <PunchPanel onSuccess={fetchAttendance} />
+        </div>
+      </div>
+
+      {/* その下: 今日の設定に基づいたコンテンツ（ニュース・クイズ・雑学）をカード形式で並べる */}
+      <div className="rounded-xl border border-gray-200/90 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-4 py-2">
+          <h2 className="text-sm font-semibold text-gray-800">今日のニュース・学習</h2>
+        </div>
+        <div className="p-4">
+          <IntelligentBanner settings={bannerSettings} />
+          <div className="mt-4">
+            <TodayAiContent />
           </div>
         </div>
       </div>
 
-      {appliedPlanSummary && (
+      {showAppliedPlan && appliedPlanSummary && (
         <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-4 py-3 shadow-sm">
           <p className="text-xs font-semibold text-emerald-800">現在の学習プラン</p>
           <p className="mt-1 text-sm text-emerald-900/90">
