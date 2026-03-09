@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { PunchPanel } from "./PunchPanel";
 import { IntelligentBanner } from "./IntelligentBanner";
+import { QuizPanel } from "./QuizPanel";
 import type { BannerSettings } from "./IntelligentBanner";
 import { FileText, Calendar } from "lucide-react";
 
@@ -93,7 +94,9 @@ function calcActualWorkMinutes(
 const DEFAULT_BANNER_SETTINGS: BannerSettings = {
   showSpecialDay: true,
   showAiNews: true,
+  showAiTerm: true,
   displayMode: "standard",
+  displayVolume: "simple",
 };
 
 export function DashboardContent() {
@@ -110,7 +113,9 @@ export function DashboardContent() {
           setBannerSettings({
             showSpecialDay: json.settings.showSpecialDay ?? true,
             showAiNews: json.settings.showAiNews ?? true,
+            showAiTerm: json.settings.showAiTerm ?? true,
             displayMode: json.settings.displayMode ?? "standard",
+            displayVolume: json.settings.displayVolume ?? "simple",
           });
         }
       })
@@ -201,6 +206,8 @@ export function DashboardContent() {
       )}
 
       <PunchPanel onSuccess={fetchAttendance} />
+
+      <QuizPanel />
 
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold tracking-tight text-gray-800">

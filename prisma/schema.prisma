@@ -17,19 +17,37 @@ model User {
   attendance    Attendance[]
   leaveRequests LeaveRequest[]
   settings      UserSettings?
+  quizAttempts  QuizAttempt[]
   createdAt     DateTime      @default(now())
 }
 
-/// ダッシュボード表示カスタマイズ・表示モード（ログインごとに反映）
+/// ダッシュボード表示カスタマイズ・学習設定（ログインごとに反映）
 model UserSettings {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  user             User     @relation(fields: [userId], references: [id])
-  showSpecialDay   Boolean  @default(true)
-  showAiNews       Boolean  @default(true)
-  displayMode      String   @default("standard") // "standard" | "detail_special" | "detail_news"
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id])
+  showSpecialDay      Boolean  @default(true)
+  showAiNews          Boolean  @default(true)
+  showAiTerm          Boolean  @default(true)
+  displayMode         String   @default("standard")
+  displayVolume       String   @default("simple") // "simple" | "detailed"
+  preferredTopicIds   String?  // JSON array of topic ids
+  customLearningGoal  String?  // 自由記述「TOEIC 800点を目指す」等 → LLM連携用
+  dailyQuizCount      Int      @default(5)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+/// 忘却曲線に基づくクイズ回答履歴（復習タイミング計算に使用）
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  questionId   String
+  correct      Boolean
+  answeredAt   DateTime @default(now())
+  nextReviewAt DateTime? // エビングハウスに基づく次回出題日
+  createdAt    DateTime @default(now())
 }
 
 model Attendance {

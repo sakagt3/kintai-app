@@ -2,18 +2,26 @@
 
 A modern attendance management web app with clock-in/out, break tracking, leave requests, and a Jobcan-style UI. Built for production use with validation, auth guards, and clear documentation.
 
-**商用レベルを想定した勤怠管理Webアプリ。** 出退勤・休憩打刻、休暇申請、ジョブカン風UIに加え、**インテリジェント・ダッシュボード**（今日は何の日・AIデイリーニュース・表示設定の保存）を備えています。
+**商用レベルを想定した勤怠管理Webアプリ。** 出退勤・休憩打刻に加え、**AI時代のビジネス戦闘力向上プラットフォーム**として、打刻するたびに成長できる学習機能を統合しています。
 
 ---
 
 ## Features / 主な機能
 
 - **勤怠打刻**: 出勤・退勤・休憩開始・休憩戻り（位置情報対応）
-- **インテリジェント・トップバナー**
-  - **今日は何の日（詳細版）**: 由来や現代に活かせる教訓を含む3〜4行の説明
-  - **AIデイリーニュース**: AI業界の動向（RAG・エージェント・新モデル等）の要約（現状モック、将来API連携想定）
-  - **表示モード**: 標準（両方表示）／詳細解説モード（今日は何の日 or AIニュースを深掘り）
-- **設定画面**: 「今日は何の日」「AIニュース」のON/OFF、表示モード選択、プロフィール（名前・メール確認・名前変更）。設定はDBに保存されログインごとに反映。
+- **AI学習＆ニュースバナー**
+  - **AIニュース**: 出典リンク付き。「気になったら詳細を見る」でソース記事へ遷移（現状モック、API連携想定）
+  - **AI用語解説（営業用）**: 毎日1つ（LLM, RAG, Agent等）。用語説明・お客様へのトーク例・ビジネス使用用途を表示
+  - **今日は何の日（詳細版）**: 由来・教訓を含む3〜4行の説明
+  - **表示カスタマイズ**: 設定で「AIニュース」「AI用語」「記念日」のON/OFF、表示ボリューム（簡易・詳細）
+- **LLMベースのパーソナライズ基盤**
+  - **トピック選択**: 10個以上のジャンル（最新テック、経済、歴史、心理学、ガジェット、AI・ML等）から興味を選択
+  - **自由記述カスタマイズ**: 「TOEIC 800点を目指すための単語」のように学びたい内容を入力。`lib/llm.ts` でメタ・プロンプトを組み立て、将来的にGPT/Gemini等と連携する拡張ポイントを用意
+- **忘却曲線クイズ（一問一答）**
+  - 毎日4択クイズ（IT用語・英単語等）。正解/不正解をDBに記録
+  - **エビングハウスに基づく出題**: 復習タイミング（nextReviewAt）を計算し、間違えた問題・忘れそうな問題を優先して出題
+  - 1日の出題数（5問・10問・15問・20問）を設定で変更可能
+- **高度な設定パネル**: トピック選択・学習目標・問題数・表示優先度を一括で制御。プロフィール（名前・メール確認・名前変更）もDBに保存されログインごとに反映
 - **打刻後の演出**: 出勤打刻後に「今日のニュースは読みましたか？」の控えめなメッセージを表示
 
 ---
@@ -106,26 +114,43 @@ src/
 │   │   ├── auth/         # NextAuth ルート
 │   │   ├── leave/        # 休暇申請 API
 │   │   ├── register/     # 新規登録 API
+│   │   ├── quiz/         # POST: クイズ回答送信（忘却曲線で次回復習日を計算）
+│   │   ├── quiz/today/   # GET: 今日の出題（復習優先・ランダム補完）
 │   │   └── settings/     # GET/PATCH: ユーザー設定・プロフィール
-│   ├── dashboard/        # ダッシュボード・打刻・休暇申請・設定
-│   │   ├── IntelligentBanner.tsx  # 今日は何の日 + AIニュース
+│   ├── dashboard/        # ダッシュボード・打刻・クイズ・休暇申請・設定
+│   │   ├── IntelligentBanner.tsx  # 今日は何の日 + AIニュース + AI用語（出典リンク付き）
 │   │   ├── PunchPanel.tsx
-│   │   └── settings/     # 設定画面（表示カスタマイズ・表示モード・プロフィール）
+│   │   ├── QuizPanel.tsx # 一問一答クイズ（忘却曲線出題）
+│   │   └── settings/     # 高度設定（トピック・学習目標・問題数・表示ON/OFF・プロフィール）
 │   ├── login/
 │   ├── register/
 │   └── layout.tsx
 ├── auth.ts               # NextAuth 設定
 ├── lib/
 │   ├── prisma.ts
-│   ├── aiNews.ts         # AIデイリーニュース（モック、API連携想定）
+│   ├── llm.ts            # LLM連携雛形（メタ・プロンプト組み立て・将来API呼び出し）
+│   ├── aiNews.ts         # AIデイリーニュース（モック、出典URL付き）
+│   ├── aiTerms.ts        # 営業向けAI用語（用語・トーク例・ビジネス用途）
 │   ├── specialDays.ts    # 今日は何の日（詳細説明付き）
+│   ├── topics.ts         # 学習トピック（10+ジャンル）
+│   ├── quizBank.ts       # 4択クイズプール（IT用語・英単語）
+│   ├── ebbinghaus.ts     # 忘却曲線の次回復習日計算
 │   └── validations.ts    # Zod スキーマ
 └── middleware.ts         # 認証ガード（/dashboard → /login）
 ```
 
 ### Database / データベース
 
-- **UserSettings**: ユーザーごとの表示設定（`showSpecialDay`, `showAiNews`, `displayMode`）。初回取得時にデフォルトでレコード作成。
+- **UserSettings**: 表示設定（`showSpecialDay`, `showAiNews`, `showAiTerm`, `displayMode`, `displayVolume`）、学習設定（`preferredTopicIds` JSON, `customLearningGoal`, `dailyQuizCount`）。初回取得時にデフォルトでレコード作成。
+- **QuizAttempt**: クイズ回答履歴（`userId`, `questionId`, `correct`, `answeredAt`, `nextReviewAt`）。忘却曲線に基づく復習タイミング計算に使用。
+
+---
+
+## For Engineers / 技術的なポイント
+
+- **忘却曲線アルゴリズム**: 単なるランダム出題ではなく、DBの回答履歴から `nextReviewAt` を計算し、復習が due になった問題を優先して出題。
+- **メタ・プロンプティング**: `lib/llm.ts` で「ユーザーの学習目標＋トピック」から日次コンテンツ用のプロンプトを組み立て。環境変数（`OPENAI_API_KEY` / `GEMINI_API_KEY`）未設定時はモック返却で拡張可能。
+- **パーソナライゼーション**: 勤怠という静的なデータに、学習目標・トピック・クイズ履歴という動的データを組み合わせた設計。設定画面で「TOEIC 800点を目指す」と入力し保存すると、将来的にLLM連携でその要望に沿ったコンテンツを生成する基盤となる。
 
 ---
 

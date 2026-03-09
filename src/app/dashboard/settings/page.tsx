@@ -1,19 +1,25 @@
 "use client";
 
 /**
- * 設定画面: 表示カスタマイズ（今日は何の日・AIニュースON/OFF）、
- * 表示モード選択、プロフィール（名前・メール確認・名前変更）をDBに保存する。
+ * 設定画面: 表示カスタマイズ・表示ボリューム・トピック選択・学習目標・クイズ出題数・プロフィールをDBに保存。
  */
 import { useEffect, useState } from "react";
 import { Settings, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { TOPICS } from "@/lib/topics";
 
 type DisplayMode = "standard" | "detail_special" | "detail_news";
+type DisplayVolume = "simple" | "detailed";
 
 type SettingsState = {
   showSpecialDay: boolean;
   showAiNews: boolean;
+  showAiTerm: boolean;
   displayMode: DisplayMode;
+  displayVolume: DisplayVolume;
+  preferredTopicIds: string[];
+  customLearningGoal: string;
+  dailyQuizCount: number;
 };
 
 type ProfileState = {
@@ -27,7 +33,12 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsState>({
     showSpecialDay: true,
     showAiNews: true,
+    showAiTerm: true,
     displayMode: "standard",
+    displayVolume: "simple",
+    preferredTopicIds: [],
+    customLearningGoal: "",
+    dailyQuizCount: 5,
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
 
@@ -42,7 +53,17 @@ export default function SettingsPage() {
           setSettings({
             showSpecialDay: data.settings.showSpecialDay ?? true,
             showAiNews: data.settings.showAiNews ?? true,
+            showAiTerm: data.settings.showAiTerm ?? true,
             displayMode: data.settings.displayMode ?? "standard",
+            displayVolume: data.settings.displayVolume === "detailed" ? "detailed" : "simple",
+            preferredTopicIds: Array.isArray(data.settings.preferredTopicIds)
+              ? data.settings.preferredTopicIds
+              : [],
+            customLearningGoal: data.settings.customLearningGoal ?? "",
+            dailyQuizCount:
+              typeof data.settings.dailyQuizCount === "number"
+                ? Math.min(20, Math.max(1, data.settings.dailyQuizCount))
+                : 5,
           });
         }
         if (data.profile) {
@@ -64,7 +85,12 @@ export default function SettingsPage() {
       body: JSON.stringify({
         showSpecialDay: settings.showSpecialDay,
         showAiNews: settings.showAiNews,
+        showAiTerm: settings.showAiTerm,
         displayMode: settings.displayMode,
+        displayVolume: settings.displayVolume,
+        preferredTopicIds: settings.preferredTopicIds,
+        customLearningGoal: settings.customLearningGoal || undefined,
+        dailyQuizCount: settings.dailyQuizCount,
         name: profile.name,
       }),
     })
@@ -136,7 +162,120 @@ export default function SettingsPage() {
               className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
             />
           </label>
+          <label className="flex cursor-pointer items-center justify-between gap-4">
+            <span className="text-sm text-gray-700">AI用語（営業向け）を表示する</span>
+            <input
+              type="checkbox"
+              checked={settings.showAiTerm}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, showAiTerm: e.target.checked }))
+              }
+              className="h-4 w-4 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+            />
+          </label>
         </div>
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="mb-2 text-xs font-medium text-gray-600">表示ボリューム</p>
+          <div className="flex gap-4">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="displayVolume"
+                checked={settings.displayVolume === "simple"}
+                onChange={() =>
+                  setSettings((s) => ({ ...s, displayVolume: "simple" }))
+                }
+                className="h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+              />
+              <span className="text-sm">簡易</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="displayVolume"
+                checked={settings.displayVolume === "detailed"}
+                onChange={() =>
+                  setSettings((s) => ({ ...s, displayVolume: "detailed" }))
+                }
+                className="h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+              />
+              <span className="text-sm">詳細</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      {/* トピック選択・学習目標（LLM連携基盤） */}
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-gray-800">
+          興味トピック・学習目標（パーソナライズ）
+        </h2>
+        <p className="mb-3 text-xs text-gray-500">
+          興味のあるジャンルを選ぶと、コンテンツの優先度に反映されます。自由記述で「何を学びたいか」を入力すると、将来的にLLMがその要望に沿ったコンテンツを生成する基盤に連携します。
+        </p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {TOPICS.map((t) => (
+            <label
+              key={t.id}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm hover:bg-gray-100"
+            >
+              <input
+                type="checkbox"
+                checked={settings.preferredTopicIds.includes(t.id)}
+                onChange={(e) => {
+                  setSettings((s) => ({
+                    ...s,
+                    preferredTopicIds: e.target.checked
+                      ? [...s.preferredTopicIds, t.id]
+                      : s.preferredTopicIds.filter((id) => id !== t.id),
+                  }));
+                }}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+              />
+              {t.label}
+            </label>
+          ))}
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            自由記述で学びたいこと（例: TOEIC 800点を目指すための単語）
+          </label>
+          <textarea
+            value={settings.customLearningGoal}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
+            }
+            placeholder="例: TOEIC 800点を目指すための単語"
+            rows={2}
+            className="w-full max-w-lg rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
+          />
+        </div>
+      </section>
+
+      {/* クイズ出題数 */}
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-gray-800">
+          1日のクイズ出題数
+        </h2>
+        <p className="mb-3 text-xs text-gray-500">
+          忘却曲線に基づく復習問題を優先し、残りをランダムで出題します。
+        </p>
+        <select
+          value={settings.dailyQuizCount}
+          onChange={(e) =>
+            setSettings((s) => ({
+              ...s,
+              dailyQuizCount: Number(e.target.value),
+            }))
+          }
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
+        >
+          {[5, 10, 15, 20].map((n) => (
+            <option key={n} value={n}>
+              {n}問
+            </option>
+          ))}
+        </select>
       </section>
 
       {/* 表示モード */}

@@ -25,6 +25,7 @@ const MOCK_ITEMS: AiNewsItem[] = [
     detail:
       "RAG（Retrieval-Augmented Generation）は、外部の知識ベースを検索し、その結果をプロンプトに含めてLLMに回答させる手法です。社内ナレッジやマニュアルをベクトルDBに格納し、質問に応じて関連チャンクだけを渡すことで、 hallucination を抑えつつ最新情報を反映した回答が得られます。\n\n実務では、Embedding モデルと検索の粒度（チャンクサイズ・オーバーラップ）、再ランキングの有無が精度を左右します。まずは限定的なドメインで PoC し、ユーザーフィードバックで改善するサイクルがおすすめです。",
     source: "AI Trends Digest（モック）",
+    url: "https://aws.amazon.com/blogs/machine-learning/rag/",
     category: "RAG",
     publishedAt: new Date().toISOString(),
   },
@@ -36,6 +37,7 @@ const MOCK_ITEMS: AiNewsItem[] = [
     detail:
       "エージェント型AIは、ユーザーが示した目標に対して、内部でタスクを分解し、検索・計算・API呼び出しなどのツールを組み合わせて段階的に実行します。ReAct や Plan-and-Execute といったパターンが知られ、LangChain や CrewAI などのフレームワークで実装が容易になってきました。\n\nビジネスでは、顧客問い合わせの一次対応、レポート下書き、データ集計の自動化などに適用されています。実運用では、実行ステップのログとガードレール（権限・範囲の制限）の設計が重要です。",
     source: "AI Trends Digest（モック）",
+    url: "https://langchain.com",
     category: "エージェント",
     publishedAt: new Date().toISOString(),
   },
@@ -47,6 +49,7 @@ const MOCK_ITEMS: AiNewsItem[] = [
     detail:
       "画像入力・音声入出力に対応したモデルにより、契約書のスキャン読み取り、会議の要約、音声での操作など、これまで別システムで行っていた処理を一つのパイプラインで扱えるようになりつつあります。\n\nコンテキスト長の拡張（100k〜200万トークン）により、長い仕様書や複数ドキュメントをまとめて参照した回答が可能になり、開発・法務・営業の業務効率化に直結しています。選定時は、入力単価・レイテンシ・言語対応を用途に合わせて比較するのがおすすめです。",
     source: "AI Trends Digest（モック）",
+    url: "https://openai.com/blog",
     category: "新モデル",
     publishedAt: new Date().toISOString(),
   },
@@ -58,6 +61,7 @@ const MOCK_ITEMS: AiNewsItem[] = [
     detail:
       "EU AI Act では、用途をリスクレベルで分類し、高リスクシステムには透明性・ログ・ヒューマンオーバーライドなどの要件が課されます。日本でもガイドラインの整備が進んでおり、生成AIの業務利用では、著作権・個人情報・出力の検証が論点になります。\n\n企業では、AI利用ポリシーの策定、プロバイダ選定時の契約・SLA確認、社内教育が急務です。まずは「どこにAIを使い、どこは人が判断するか」を明文化することから始めるとよいでしょう。",
     source: "AI Trends Digest（モック）",
+    url: "https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai",
     category: "規制",
     publishedAt: new Date().toISOString(),
   },
@@ -69,6 +73,7 @@ const MOCK_ITEMS: AiNewsItem[] = [
     detail:
       "効果測定では、導入前後のタスク完了時間、エラー率、承認率、アンケートによる「使いやすさ」や「時間削減感」を記録します。部署ごと・ユースケースごとにダッシュボード化し、どこで効いているか・どこで躓いているかを可視化することが重要です。\n\n短期的な生産性向上に加え、イノベーション（新サービス・新プロセスの創出）への貢献も中長期で追うと、経営層の理解を得やすくなります。",
     source: "AI Trends Digest（モック）",
+    url: "https://hbr.org/topic/subject/artificial-intelligence",
     category: "ビジネス",
     publishedAt: new Date().toISOString(),
   },
