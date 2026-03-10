@@ -89,17 +89,17 @@ export function PunchPanel({ onSuccess }: { onSuccess: () => void }) {
   };
 
   const btnClass =
-    "flex min-h-[44px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-bold shadow-sm transition disabled:opacity-50 disabled:pointer-events-none";
+    "flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl px-3 py-3 text-base font-bold shadow-sm transition disabled:opacity-50 disabled:pointer-events-none sm:min-h-[44px] sm:gap-1.5 sm:rounded-lg sm:px-2 sm:py-2.5 sm:text-sm";
   return (
-    <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 sm:p-4">
-      <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">再度押すと時刻を上書きします</p>
-      <div className="mb-3 rounded-lg bg-[#1e3a5f] py-3 text-center">
-        <p className="text-xl font-bold tabular-nums tracking-wide text-white sm:text-2xl">
+    <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 sm:p-4">
+      <p className="mb-3 text-sm text-slate-500 dark:text-slate-400 sm:mb-2 sm:text-xs">再度押すと時刻を上書きします</p>
+      <div className="mb-4 rounded-xl bg-[#1e3a5f] py-4 text-center sm:mb-3 sm:rounded-lg sm:py-3">
+        <p className="text-2xl font-bold tabular-nums tracking-wide text-white sm:text-xl md:text-2xl">
           {timeStr}
         </p>
-        <p className="mt-0.5 text-xs font-medium text-white/80">{dateStr}</p>
+        <p className="mt-1 text-sm font-medium text-white/80 sm:mt-0.5 sm:text-xs">{dateStr}</p>
       </div>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-2 md:gap-3">
         <motion.button
           type="button"
           onClick={() => handlePunch("CLOCK_IN")}

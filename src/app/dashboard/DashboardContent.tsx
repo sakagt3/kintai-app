@@ -186,21 +186,21 @@ function SortableCard({
       style={style}
       className={`${CARD_CLASS} ${isDragging ? "z-50 opacity-90 shadow-lg" : ""}`}
     >
-      <div className="flex items-center border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
+      <div className="flex items-center border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:py-2.5">
         <button
           type="button"
-          className="touch-none cursor-grab rounded p-1 text-slate-400 hover:bg-slate-100 active:cursor-grabbing dark:hover:bg-slate-800"
+          className="touch-none cursor-grab rounded p-1.5 text-slate-400 hover:bg-slate-100 active:cursor-grabbing dark:hover:bg-slate-800"
           aria-label="並び替え"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
         </button>
-        <h2 className="ml-2 text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+        <h2 className="ml-2 text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
           {title}
         </h2>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </div>
   );
 }
@@ -454,9 +454,9 @@ export function DashboardContent() {
   })();
 
   return (
-    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-8 overflow-x-hidden p-4 sm:p-6 md:p-8">
+    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-6 overflow-x-hidden p-4 sm:gap-8 sm:p-6 md:p-8">
       {/* 今日の日付（西暦） */}
-      <p className="text-sm font-medium text-slate-600 dark:text-slate-400" aria-live="polite">
+      <p className="text-base font-medium text-slate-600 dark:text-slate-400 sm:text-sm" aria-live="polite">
         {todayLabel}
       </p>
       {/* 勤怠取得失敗時は案内のみ表示し、画面はそのまま使えるようにする */}
@@ -468,19 +468,19 @@ export function DashboardContent() {
 
       {/* ① 勤怠パネル（固定）・当月残業表示 */}
       <div className={`${CARD_CLASS} overflow-hidden`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
-          <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:py-2.5">
+          <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
             打刻
           </h2>
           <span className="text-xs font-medium tabular-nums text-slate-600 dark:text-slate-400">
             当月残業（定時17:30〜）{formatDuration(monthlyOvertimeMinutes)}
           </span>
         </div>
-        <div className="p-4">
+        <div className="p-4 sm:p-4">
           {status && (
-            <div className="mb-3 flex justify-center">
+            <div className="mb-4 flex justify-center sm:mb-3">
               <span
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold sm:px-3 sm:py-1.5 sm:text-xs ${
                   status === "勤務中"
                     ? "bg-emerald-500/15 text-emerald-700"
                     : status === "休憩中"
@@ -509,12 +509,12 @@ export function DashboardContent() {
         sectionName="コンテンツカード"
         fallback={
           <div className={CARD_CLASS}>
-            <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-              <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+            <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:px-5">
+              <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
                 コンテンツ
               </h2>
             </div>
-            <div className="p-5 text-sm text-slate-600 dark:text-slate-400">
+            <div className="p-4 text-base text-slate-600 dark:text-slate-400 sm:p-5 sm:text-sm">
               一部コンテンツを読み込めませんでした。ページを再読み込みしてください。
             </div>
           </div>
@@ -526,12 +526,12 @@ export function DashboardContent() {
             if (!entry) return null;
             return (
               <div key={id} className={CARD_CLASS}>
-                <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-                  <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+                <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:px-5">
+                  <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
                     {entry?.title ?? "—"}
                   </h2>
                 </div>
-                <div className="p-5">{entry?.content ?? null}</div>
+                <div className="p-4 sm:p-5">{entry?.content ?? null}</div>
               </div>
             );
           })
@@ -560,11 +560,11 @@ export function DashboardContent() {
       </ErrorBoundary>
 
       {hasPlan && showAppliedPlan && appliedPlanSummary?.trim() && (
-        <div className="rounded-2xl border border-slate-200/80 border-l-4 border-l-indigo-400 bg-slate-50/80 px-5 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:border-l-indigo-500 dark:bg-slate-800/50">
-          <p className="text-xs font-semibold text-[#1E293B] dark:text-slate-300">
+        <div className="rounded-2xl border border-slate-200/80 border-l-4 border-l-indigo-400 bg-slate-50/80 px-4 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:border-l-indigo-500 dark:bg-slate-800/50 sm:px-5">
+          <p className="text-sm font-semibold text-[#1E293B] dark:text-slate-300 sm:text-xs">
             現在の学習プラン
           </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+          <p className="mt-1.5 text-base leading-relaxed text-slate-700 dark:text-slate-300 sm:text-sm">
             {String(appliedPlanSummary).slice(0, 140)}
             {String(appliedPlanSummary).length > 140 ? "…" : ""}
           </p>
@@ -574,9 +574,9 @@ export function DashboardContent() {
       {/* 勤怠状況・カレンダー（見出し・ヘッダー高さを揃えたレイアウト） */}
       <section className={`${CARD_CLASS} overflow-hidden`}>
         <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:px-5">
-          <FileText className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
-          <Calendar className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
-          <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+          <FileText className="h-4 w-4 shrink-0 text-[#1E293B] dark:text-slate-400" />
+          <Calendar className="h-4 w-4 shrink-0 text-[#1E293B] dark:text-slate-400" />
+          <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
             勤怠状況・カレンダー
           </h2>
         </div>

@@ -59,10 +59,10 @@ export function HeadlineCard() {
       <div className="flex items-start gap-3">
         <Newspaper className="mt-0.5 h-5 w-5 shrink-0 text-[#1E293B] dark:text-slate-400" />
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-[#1E293B] dark:text-slate-200">
+          <p className="text-base font-medium text-[#1E293B] dark:text-slate-200 sm:text-sm">
             {title}
           </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+          <p className="mt-1.5 text-base leading-relaxed text-slate-600 dark:text-slate-400 sm:text-sm">
             {summary}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -76,7 +76,7 @@ export function HeadlineCard() {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#1E293B]/30 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1E293B] hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#1E293B]/30 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:min-h-0 sm:px-2.5 sm:py-1.5 sm:text-xs"
               >
                 詳細を見る
                 <ExternalLink className="h-3.5 w-3.5" />

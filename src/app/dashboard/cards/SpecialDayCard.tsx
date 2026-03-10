@@ -31,13 +31,13 @@ export function SpecialDayCard() {
       <div className="flex items-start gap-3">
         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 sm:text-xs">
             今日は何の日
           </p>
-          <p className="mt-1 text-sm font-semibold text-amber-900 dark:text-amber-100">
+          <p className="mt-1.5 text-base font-semibold text-amber-900 dark:text-amber-100 sm:text-sm">
             {name}
           </p>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+          <p className="mt-2 whitespace-pre-line text-base leading-relaxed text-amber-900/90 dark:text-amber-100/90 sm:text-sm">
             {body}
           </p>
           {source && (
