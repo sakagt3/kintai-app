@@ -275,7 +275,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-6 overflow-x-hidden p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-lg font-bold text-gray-800">
           <Settings className="h-5 w-5 text-[#1e3a5f]" />

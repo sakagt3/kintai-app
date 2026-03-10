@@ -89,9 +89,9 @@ export function PunchPanel({ onSuccess }: { onSuccess: () => void }) {
   };
 
   const btnClass =
-    "flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-bold shadow-sm transition disabled:opacity-50 disabled:pointer-events-none";
+    "flex min-h-[44px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-bold shadow-sm transition disabled:opacity-50 disabled:pointer-events-none";
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 sm:p-4">
+    <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 sm:p-4">
       <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">再度押すと時刻を上書きします</p>
       <div className="mb-3 rounded-lg bg-[#1e3a5f] py-3 text-center">
         <p className="text-xl font-bold tabular-nums tracking-wide text-white sm:text-2xl">
@@ -99,7 +99,7 @@ export function PunchPanel({ onSuccess }: { onSuccess: () => void }) {
         </p>
         <p className="mt-0.5 text-xs font-medium text-white/80">{dateStr}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
         <motion.button
           type="button"
           onClick={() => handlePunch("CLOCK_IN")}

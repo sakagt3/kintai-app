@@ -122,7 +122,7 @@ export default function HistoryPage() {
   const avgActual = rows.length > 0 ? Math.round(totalActual / rows.length) : 0;
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 md:p-8">
+    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-6 overflow-x-hidden p-4 sm:p-6 md:p-8">
       <div className="flex items-center gap-2">
         <History className="h-5 w-5 text-[#1E293B] dark:text-slate-400" />
         <h1 className="text-lg font-semibold text-[#1E293B] dark:text-slate-200">

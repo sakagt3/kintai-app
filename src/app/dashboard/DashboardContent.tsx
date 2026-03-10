@@ -138,7 +138,7 @@ function calcActualWorkMinutes(
 }
 
 const CARD_CLASS =
-  "rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]";
+  "min-w-0 rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]";
 
 function Card({
   title,
@@ -454,7 +454,7 @@ export function DashboardContent() {
   })();
 
   return (
-    <div className="flex min-w-0 max-w-full flex-1 flex-col gap-8 p-4 sm:p-6 md:p-8">
+    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-8 overflow-x-hidden p-4 sm:p-6 md:p-8">
       {/* 今日の日付（西暦） */}
       <p className="text-sm font-medium text-slate-600 dark:text-slate-400" aria-live="polite">
         {todayLabel}
@@ -467,7 +467,7 @@ export function DashboardContent() {
       )}
 
       {/* ① 勤怠パネル（固定）・当月残業表示 */}
-      <div className={CARD_CLASS}>
+      <div className={`${CARD_CLASS} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
             打刻
@@ -572,8 +572,8 @@ export function DashboardContent() {
       )}
 
       {/* 勤怠状況・カレンダー（見出し・ヘッダー高さを揃えたレイアウト） */}
-      <section className={CARD_CLASS}>
-        <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+      <section className={`${CARD_CLASS} overflow-hidden`}>
+        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:px-5">
           <FileText className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
           <Calendar className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
           <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
@@ -582,7 +582,7 @@ export function DashboardContent() {
         </div>
         <div className="p-4 sm:p-5">
           {/* 1行目: 月ラベルと「直近1週間」を同じ高さで横並び */}
-          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,240px)_1fr] sm:items-center sm:gap-6">
+          <div className="grid min-w-0 grid-cols-1 sm:grid-cols-[minmax(0,240px)_1fr] sm:items-center sm:gap-6">
             <div className="flex h-9 items-center">
               {monthDates.length > 0 && monthDates[0] && (() => {
                 const [y, m] = monthDates[0].split("-");
@@ -601,7 +601,7 @@ export function DashboardContent() {
           </div>
 
           {/* 2行目: カレンダーと表を同じ基準で並べる（曜日行と表ヘッダーを同じ高さに） */}
-          <div className="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-[minmax(0,240px)_1fr] sm:gap-8">
+          <div className="mt-3 grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-[minmax(0,240px)_1fr] sm:gap-8">
             {/* 左: カレンダー */}
             {monthDates.length > 0 && (
               <div className="flex flex-col">
@@ -650,8 +650,8 @@ export function DashboardContent() {
               </div>
             )}
             {/* 右: 直近1週間テーブル（ヘッダー高さをカレンダー曜日行と揃える） */}
-            <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800/30">
-              <table className="w-full min-w-[220px] text-left text-sm">
+            <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800/30">
+              <table className="w-full min-w-[200px] text-left text-sm">
                 <thead>
                   <tr className="h-8 border-b border-slate-200 bg-slate-50/90 dark:border-slate-600 dark:bg-slate-800/50">
                     <th className="px-3 font-medium text-slate-600 dark:text-slate-400">日付</th>
