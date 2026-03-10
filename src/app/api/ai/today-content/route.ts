@@ -1,6 +1,6 @@
 /**
- * 今日の1問/1トピックを、保存された学習プロンプト（UserSettings）を元にLLMでその場生成。
- * ダッシュボード読み込み時に呼び、AI生成問題エリアに表示する。難易度は learningLevel（クイック診断で更新）に準拠。
+ * 今日の1問を、保存された学習プロンプト（UserSettings）を元にLLMでその場生成。問題形式（4択）のみ。
+ * ダッシュボード読み込み時に呼び、難易度は learningLevel に準拠。日付ごとに内容が変わる。
  */
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
@@ -28,13 +28,9 @@ ${goal || "（未設定）"}
 【レベル】
 ${levelGuide}
 
-【出力形式】以下を厳守し、JSONのみを1つ出力してください。説明や前後の文章は不要。
-{"type":"quiz","question":"（4択の問題文。例: RAGのRは何の略？）","options":["A: Retrieval","B: Real-time","C: Random","D: Resource"],"correctIndex":0,"explanation":"（正解の簡潔な解説）"}
-
-または トピック1つの場合:
-{"type":"topic","title":"（短い見出し）","body":"（2〜4文の解説）"}
-
-type は "quiz" か "topic" のどちらか。quiz のときは correctIndex は 0〜3 の整数。options は4要素の配列。`;
+【出力形式】以下を厳守し、JSONのみを1つ出力してください。説明や前後の文章は不要。必ず4択クイズ1問のみ出力すること。
+{"type":"quiz","question":"（4択の問題文。例: RAGのRは何の略？）","options":["Aの選択肢","B","C","D"],"correctIndex":0,"explanation":"（正解の簡潔な解説）"}
+correctIndexは0〜3の整数。optionsは4要素の配列。`;
 }
 
 export async function GET() {
@@ -86,16 +82,13 @@ export async function GET() {
 
     const trimmed = text.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, "$1").trim();
     const parsed = JSON.parse(trimmed) as {
-      type: "quiz" | "topic";
       question?: string;
       options?: string[];
       correctIndex?: number;
       explanation?: string;
-      title?: string;
-      body?: string;
     };
 
-    if (parsed.type === "quiz" && Array.isArray(parsed.options) && parsed.question) {
+    if (Array.isArray(parsed.options) && parsed.question) {
       const correctIndex = Math.min(3, Math.max(0, Number(parsed.correctIndex) || 0));
       return NextResponse.json({
         hasContent: true,
@@ -107,14 +100,6 @@ export async function GET() {
       });
     }
 
-    if (parsed.type === "topic" && parsed.title) {
-      return NextResponse.json({
-        hasContent: true,
-        type: "topic",
-        title: String(parsed.title),
-        body: String(parsed.body ?? ""),
-      });
-    }
   } catch (e) {
     console.error(e);
   }

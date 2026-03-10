@@ -1,12 +1,17 @@
 /**
- * 本日のニュースヘッドラインを公的RSSから取得。
- * 見出し＋短い概要（2〜3行）＋「詳細を読む」リンクのみ表示し、全文転載は行わない（引用の範囲で法的にクリーン）。
+ * 本日のニュースヘッドラインを無料・登録不要のRSSから取得。
+ * NHKは規約が厳しいため使用しない。見出し＋短い概要＋「詳細を読む」リンクのみ（引用の範囲で法的にクリーン）。
+ * アクセスのたびにRSSを取得するため、毎日更新される仕組み。
  */
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
 
-const NHK_RSS = "https://www.nhk.or.jp/rss/news/cat0.xml";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TOYO_KEIZAI_RSS = "https://toyokeizai.net/list/feed/rss";
+const ITMEDIA_TOP_RSS = "https://rss.itmedia.co.jp/rss/2.0/topstory.xml";
+const ITMEDIA_NEWS_RSS = "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml";
 const parser = new Parser({ timeout: 8000 });
 
 export type NewsItem = {
@@ -55,10 +60,9 @@ async function fetchNewsFromUrl(
 export async function GET() {
   try {
     const news =
-      (await fetchNewsFromUrl(NHK_RSS, "NHK NEWS WEB").catch(() => null)) ??
-      (await fetchNewsFromUrl(TOYO_KEIZAI_RSS, "東洋経済オンライン").catch(
-        () => null
-      ));
+      (await fetchNewsFromUrl(TOYO_KEIZAI_RSS, "東洋経済オンライン").catch(() => null)) ??
+      (await fetchNewsFromUrl(ITMEDIA_TOP_RSS, "ITmedia").catch(() => null)) ??
+      (await fetchNewsFromUrl(ITMEDIA_NEWS_RSS, "ITmedia NEWS").catch(() => null));
     if (!news) {
       return NextResponse.json(
         { news: null, error: "no_item" },

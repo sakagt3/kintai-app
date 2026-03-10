@@ -8,12 +8,10 @@ import { useState } from "react";
 import { Loader2, CheckCircle } from "lucide-react";
 
 type Level = "beginner" | "intermediate" | "advanced" | "pro";
-type ContentFocus = "topic" | "quiz";
 
 type Props = {
   goal: string;
   level: Level;
-  contentFocus: ContentFocus;
   onApply?: (planText: string) => Promise<void>;
   appliedPlanSummary?: string;
   /** 親で「この内容でプラン作成」により生成したテキスト */

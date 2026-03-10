@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * 設定画面: 表示カスタマイズ・表示ボリューム・トピック選択・学習目標・クイズ出題数・プロフィールをDBに保存。
- * プラン適用（即時反映）・1分クイック診断・トピック vs 問題形式のトグル対応。
+ * 設定画面: 表示カスタマイズ・学習プラン（問題形式一択）・クイズ出題数・プロフィールをDBに保存。
+ * A=トピック選択で毎日問題生成 / B=自由記述で指示がなければAIが提案。
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,8 +17,6 @@ import { QuickDiagnosis } from "./QuickDiagnosis";
 type DisplayMode = "standard" | "detail_special" | "detail_news";
 type DisplayVolume = "simple" | "detailed";
 type LearningLevel = "beginner" | "intermediate" | "advanced" | "pro";
-type ContentFocus = "topic" | "quiz";
-
 type SettingsState = {
   showSpecialDay: boolean;
   showAiNews: boolean;
@@ -31,7 +29,6 @@ type SettingsState = {
   customQuizName: string;
   dailyQuizCount: number;
   learningLevel: LearningLevel;
-  contentFocus: ContentFocus;
   appliedPlanSummary: string;
 };
 
@@ -55,7 +52,6 @@ export default function SettingsPage() {
     customQuizName: "",
     dailyQuizCount: 5,
     learningLevel: "intermediate",
-    contentFocus: "topic",
     appliedPlanSummary: "",
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
@@ -92,7 +88,6 @@ export default function SettingsPage() {
               ["beginner", "intermediate", "advanced", "pro"].includes(s.learningLevel ?? "")
                 ? (s.learningLevel ?? "intermediate")
                 : "intermediate",
-            contentFocus: s.contentFocus === "quiz" ? "quiz" : "topic",
             appliedPlanSummary: s.appliedPlanSummary ?? "",
           });
         }
@@ -125,7 +120,6 @@ export default function SettingsPage() {
         customQuizName: settings.customQuizName.trim() || undefined,
         dailyQuizCount: settings.dailyQuizCount,
         learningLevel: settings.learningLevel,
-        contentFocus: settings.contentFocus,
         name: profile.name,
       }),
     })
@@ -150,7 +144,6 @@ export default function SettingsPage() {
           customLearningGoal: settings.customLearningGoal || undefined,
           learningLevel: settings.learningLevel,
           preferredTopicIds: settings.preferredTopicIds,
-          contentFocus: settings.contentFocus,
           appliedPlanSummary: summary,
           customQuizName: settings.customQuizName.trim() || undefined,
         }),
@@ -166,12 +159,42 @@ export default function SettingsPage() {
             goal: settings.customLearningGoal,
             level: settings.learningLevel,
             topics: settings.preferredTopicIds,
-            contentFocus: settings.contentFocus,
             planSummary: summary,
           },
         }),
       });
       toast.success("設定を保存し、ダッシュボードに反映しました！");
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "設定の保存に失敗しました。");
+    }
+  };
+
+  /** A: トピック選択のみの場合、選択トピックで毎日問題が生成されるプラン要約を適用 */
+  const handleApplyTopicOnly = async () => {
+    const topicLabels = settings.preferredTopicIds
+      .map((id) => TOPICS.find((t) => t.id === id)?.label ?? id)
+      .filter(Boolean);
+    const topicText =
+      topicLabels.length > 0
+        ? topicLabels.join("、")
+        : "汎用ビジネス教養";
+    const summary = `【問題形式】選択トピック: ${topicText}。毎日${settings.dailyQuizCount}問の4択クイズを、これらのトピックからAIが生成して出題します。日付が変わるたびに新しい問題が表示されます。`;
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          learningLevel: settings.learningLevel,
+          preferredTopicIds: settings.preferredTopicIds,
+          appliedPlanSummary: summary,
+          customQuizName: settings.customQuizName.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "設定の保存に失敗しました。");
+      toast.success("選択トピックで毎日問題を開始しました。ダッシュボードで確認できます。");
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -401,11 +424,15 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <p className="mb-3 text-xs font-medium text-gray-600">A. 選択式</p>
-        <p className="mb-2 text-xs text-gray-500">
-          既存トピック（ITトレンド、経済、英語等）から選ぶと、1日の標準問題数（下で設定）で出題されます。
+        <p className="mb-2 text-xs text-gray-600">
+          学習プランは<strong>問題形式（4択クイズ）のみ</strong>です。毎日、選択したトピックまたは自由記述の内容に沿って問題が更新されます。
         </p>
-        <div className="mb-6 flex flex-wrap gap-2">
+
+        <p className="mb-3 text-xs font-medium text-gray-600">A. トピック選択</p>
+        <p className="mb-2 text-xs text-gray-500">
+          既存トピックから選ぶと、そのトピックについて毎日AIが問題を生成します。1日の問題数は下の「1日の標準問題数」で設定できます。
+        </p>
+        <div className="mb-4 flex flex-wrap gap-2">
           {TOPICS.map((t) => (
             <label
               key={t.id}
@@ -428,18 +455,28 @@ export default function SettingsPage() {
             </label>
           ))}
         </div>
+        {settings.preferredTopicIds.length > 0 && (
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={handleApplyTopicOnly}
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700"
+            >
+              選択トピックで問題を開始する（毎日更新）
+            </button>
+          </div>
+        )}
 
-        <p className="mb-2 text-xs font-medium text-gray-600">B. 生成AI式</p>
+        <p className="mb-2 text-xs font-medium text-gray-600">B. 自由記述（生成AI）</p>
         <p className="mb-2 text-xs text-gray-500">
-          自由記述で自分専用のトピック・問題を生成します。ここで付けた「カスタム学習名」がダッシュボードのカード見出しになります。
+          例「TOEIC800点を目指す頻出単語」のように書くと、その内容で毎日問題を生成します。問題数やボリュームを書かない場合、AIが「頻出単語500語を抽出して毎日5問」のように提案します。
         </p>
         <p className="mb-3 text-xs text-amber-700/90 bg-amber-50/80 rounded-lg px-3 py-2 border border-amber-200/60">
-          ※特に指示がない場合、回答の難易度は『基本設定』で選択した学習レベル（初級/中級/上級）が適用されます。
+          ※難易度は「基本設定」の学習レベル（初級/中級/上級）が適用されます。
         </p>
-        {/* カスタム学習名（選択肢Bのみ：ダッシュボードのカードタイトル） */}
         <div className="mb-4">
           <label className="mb-1 block text-xs font-medium text-gray-600">
-            カスタム学習名（このプランの名前）
+            カスタム学習名（ダッシュボードのカード見出し）
           </label>
           <input
             type="text"
@@ -447,52 +484,17 @@ export default function SettingsPage() {
             onChange={(e) =>
               setSettings((s) => ({ ...s, customQuizName: e.target.value }))
             }
-            placeholder="例: 俺のAI営業修行、TOEIC 800への道"
+            placeholder="例: TOEIC 800への道、俺のAI営業修行"
             className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
-          <p className="mt-1 text-xs text-gray-500">
-            ここで入力した名前がダッシュボードの学習カードのタイトルになります。
-          </p>
-        </div>
-        {/* トピック中心 vs 問題形式 */}
-        <div className="mb-4">
-          <label className="mb-2 block text-xs font-medium text-gray-600">
-            コンテンツの重心
-          </label>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name="contentFocus"
-                checked={settings.contentFocus === "topic"}
-                onChange={() =>
-                  setSettings((s) => ({ ...s, contentFocus: "topic" }))
-                }
-                className="h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-              />
-              <span className="text-sm">トピック中心（解説重視）</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name="contentFocus"
-                checked={settings.contentFocus === "quiz"}
-                onChange={() =>
-                  setSettings((s) => ({ ...s, contentFocus: "quiz" }))
-                }
-                className="h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-              />
-              <span className="text-sm">問題形式（クイズ重視）</span>
-            </label>
-          </div>
         </div>
 
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">
-            学びたいこと（例: ビジネス英語、毎日5問）
+            学びたいこと（Bの場合・例: TOEIC800点を目指す頻出単語）
           </label>
           <p className="mb-1.5 text-[11px] text-gray-500">
-            問題数は「毎日〇問」で指定可能。未指定時は基本設定の出題数を使用。
+            問題数（毎日〇問）や「頻出500語」など、書かない場合はAIが提案します。
           </p>
           <div className="flex flex-wrap items-start gap-2">
             <textarea
@@ -500,8 +502,8 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
               }
-              placeholder="例: AI営業用語、毎日5問"
-              rows={1}
+              placeholder="例: TOEIC800点を目指す頻出単語、毎日5問"
+              rows={2}
               className="w-full max-w-md rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#1E293B] focus:outline-none focus:ring-1 focus:ring-[#1E293B] dark:border-slate-600 dark:bg-slate-800 dark:text-white"
             />
             <div className="flex shrink-0 flex-col gap-2">
@@ -523,7 +525,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            プラン作成後、下のプレビューで「このプランを適用して開始する」を押すと、ダッシュボードで毎日その方針に沿った問題が表示されます。
+            プラン作成後、下のプレビューで「このプランを適用して開始する」を押すと、毎日その方針に沿った問題が更新されて表示されます。
           </p>
         </div>
 
@@ -541,7 +543,6 @@ export default function SettingsPage() {
           <PlanPreview
             goal={settings.customLearningGoal}
             level={settings.learningLevel}
-            contentFocus={settings.contentFocus}
             appliedPlanSummary={settings.appliedPlanSummary}
             previewOverrideText={diagnosisPreviewText}
             planLoading={masterPlanLoading}

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         displayVolume: "simple",
         dailyQuizCount: 5,
         learningLevel: "intermediate",
-        contentFocus: "topic",
+        contentFocus: "quiz",
       },
     });
 

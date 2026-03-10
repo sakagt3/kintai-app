@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         ? body.level
         : "intermediate";
     const contentFocus =
-      body.contentFocus === "quiz" ? "quiz" : "topic";
+      body.contentFocus === "topic" ? "topic" : "quiz";
 
     if (!process.env.OPENAI_API_KEY) {
       const stream = mockStream(goal, level, contentFocus);

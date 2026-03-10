@@ -1,12 +1,13 @@
 /**
  * 今日のN問を取得。復習（忘却曲線）分を混ぜ、残りをLLMで新規生成。
- * プロンプトに「最新トレンド」「過去問との被りを避ける」を組み込み。
+ * 日付ごとに問題が変わるようプロンプトに本日の日付を含める。A=トピック選択時は appliedPlanSummary またはトピックから指針を組み立てる。
  */
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { TOPICS } from "@/lib/topics";
 
 const LEVEL_GUIDE: Record<string, string> = {
   beginner: "初心者向け：平易な言葉、短い文。",
@@ -103,9 +104,27 @@ export async function GET() {
   const needNew = dailyCount - questions.length;
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
 
-  if (needNew > 0 && (goal || planSummary)) {
+  // A=トピックのみ選択の場合: preferredTopicIds から指針を組み立てる
+  let effectivePlan = planSummary || goal;
+  if (!effectivePlan && settings?.preferredTopicIds) {
+    try {
+      const ids = JSON.parse(settings.preferredTopicIds) as string[];
+      if (Array.isArray(ids) && ids.length > 0) {
+        const labels = ids
+          .map((id) => TOPICS.find((t) => t.id === id)?.label ?? id)
+          .filter(Boolean);
+        effectivePlan = `選択トピック: ${labels.join("、")}。毎日${dailyCount}問の4択クイズをこれらのトピックから出題。`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!effectivePlan) effectivePlan = "ビジネス教養";
+
+  if (needNew > 0) {
     const prompt = `あなたは学習アシスタントです。以下の指針に基づき、${needNew}問の4択クイズを生成してください。
-【指針】${planSummary || goal || "ビジネス教養"}
+【本日の日付】${today}（日付が変わるごとに異なる問題になるよう、今日の日付を踏まえた多様な出題にすること）
+【指針】${effectivePlan}
 【レベル】${levelGuide}
 【ルール】最新のトレンドを1問以上含める。過去の典型的な出題と被りすぎないよう、角度を変えた問題にすること。毎日違う問題になるよう多様なトピックから選ぶこと。
 【出力】JSON配列のみ。説明は不要。形式: [{"question":"問題文","options":["Aの選択肢","B","C","D"],"correctIndex":0,"explanation":"解説"}] correctIndexは0〜3の整数。optionsは必ず4つ。`;
