@@ -1,14 +1,7 @@
-import { auth } from "@/auth";
+import { auth, isAdminUser } from "@/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import {
-  LayoutDashboard,
-  History,
-  CalendarPlus,
-  Settings,
-  LogOut,
-  Shield,
-} from "lucide-react";
+import { DashboardNav } from "@/app/dashboard/DashboardNav";
+import { LogOut } from "lucide-react";
 
 /** auth() が headers を使うため静的生成を無効化 */
 export const dynamic = "force-dynamic";
@@ -29,7 +22,7 @@ export default async function DashboardLayout({
 
   const userName = (session?.user && typeof session.user === "object" && ("name" in session.user ? session.user.name : "email" in session.user ? session.user.email : null)) ?? "—";
   const displayName = typeof userName === "string" ? userName : "—";
-  const isAdmin = (session?.user && typeof session.user === "object" && "role" in session.user && session.user.role === "admin") ?? false;
+  const isAdmin = isAdminUser(session);
 
   return (
     <div className="flex min-h-screen bg-slate-100 dark:bg-[#0f172a]">
@@ -42,43 +35,7 @@ export default async function DashboardLayout({
             </p>
           </div>
           <nav className="flex-1 space-y-0.5 p-3">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white bg-white/10"
-            >
-              <LayoutDashboard className="h-5 w-5" />
-              ダッシュボード
-            </Link>
-            <Link
-              href="/dashboard#history"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
-            >
-              <History className="h-5 w-5" />
-              打刻履歴
-            </Link>
-            <Link
-              href="/dashboard/leave"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
-            >
-              <CalendarPlus className="h-5 w-5" />
-              休暇申請
-            </Link>
-            <Link
-              href="/dashboard/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
-            >
-              <Settings className="h-5 w-5" />
-              設定
-            </Link>
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
-              >
-                <Shield className="h-5 w-5" />
-                管理者
-              </Link>
-            )}
+            <DashboardNav displayName={displayName} isAdmin={isAdmin} />
           </nav>
           <div className="border-t border-white/10 p-3">
             <form

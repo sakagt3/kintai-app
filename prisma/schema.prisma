@@ -21,7 +21,16 @@ model User {
   quizAttempts    QuizAttempt[]
   activityLogs    ActivityLog[]
   learningHistories LearningHistory[]
+  loginHistories   LoginHistory[]
   createdAt       DateTime      @default(now())
+}
+
+/// ログイン成功時の履歴（管理者向け監査用など）
+model LoginHistory {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loggedAt DateTime @default(now())
 }
 
 /// ダッシュボード表示カスタマイズ・学習設定（ログインごとに反映）
@@ -101,4 +110,14 @@ model LeaveRequest {
   date      String
   type      String
   createdAt DateTime @default(now())
+}
+
+/// アカウント削除履歴（管理者が履歴を追えるように記録）
+model AccountDeletionLog {
+  id               String   @id @default(cuid())
+  deletedUserEmail String
+  deletedUserName  String?
+  deletedAt        DateTime @default(now())
+  deletedBy        String   // "self" | "admin"
+  deletedByUserId  String?  // 管理者が削除した場合の管理者ID
 }

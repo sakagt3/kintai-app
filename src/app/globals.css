@@ -3,8 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    overflow-x: hidden;
+  }
   body {
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    min-width: 320px;
   }
   :root {
     --background: 0 0% 100%;

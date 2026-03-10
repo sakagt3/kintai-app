@@ -39,7 +39,7 @@ import {
   GripVertical,
 } from "lucide-react";
 
-const CARD_ORDER_KEYS = ["specialDay", "learning", "aiTerm", "headline"] as const;
+const CARD_ORDER_KEYS = ["specialDay", "aiTerm", "headline", "learning"] as const;
 type CardId = (typeof CARD_ORDER_KEYS)[number];
 
 type TodayRecord = {
@@ -61,7 +61,20 @@ type AttendanceData = {
   today: TodayRecord;
   last7Dates: string[];
   historyByDate: Record<string, HistoryRecord>;
+  monthDates?: string[];
+  monthlyByDate?: Record<string, HistoryRecord>;
 };
+
+/** 定時退社時刻（17:30）を分で表現 */
+const REGULAR_END_MINUTES = 17 * 60 + 30;
+
+/** 退勤時刻が定時を超えている場合の残業分数（超えていなければ 0） */
+function calcOvertimeMinutes(clockOut: string | null): number {
+  const out = parseTimeToMinutes(clockOut);
+  if (out == null) return 0;
+  if (out <= REGULAR_END_MINUTES) return 0;
+  return out - REGULAR_END_MINUTES;
+}
 
 function formatDisplayDate(dateStr: string) {
   if (!dateStr || typeof dateStr !== "string") return "—";
@@ -125,7 +138,7 @@ function calcActualWorkMinutes(
 }
 
 const CARD_CLASS =
-  "rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_2px_12px_rgba(0,0,0,0.15)]";
+  "rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]";
 
 function Card({
   title,
@@ -281,10 +294,13 @@ export function DashboardContent() {
         toast.error(json?.error ?? "勤怠データの取得に失敗しました。");
         return;
       }
-      // API は失敗時も 200 で空データを返すため、常に同じ形が来る
       const body =
         json?.today != null || json?.last7Dates != null || json?.historyByDate != null
-          ? json
+          ? {
+              ...json,
+              monthDates: json.monthDates ?? [],
+              monthlyByDate: json.monthlyByDate ?? {},
+            }
           : null;
       setData(body);
     } catch {
@@ -395,6 +411,12 @@ export function DashboardContent() {
   };
   const last7Dates = data?.last7Dates ?? [];
   const historyByDate = data?.historyByDate ?? {};
+  const monthDates = data?.monthDates ?? [];
+  const monthlyByDate = data?.monthlyByDate ?? {};
+  const monthlyOvertimeMinutes = Object.entries(monthlyByDate).reduce(
+    (sum, [, rec]) => sum + calcOvertimeMinutes(rec?.clockOut ?? null),
+    0,
+  );
   const actualMinutes = calcActualWorkMinutes(
     today.clockIn,
     today.clockOut,
@@ -432,7 +454,7 @@ export function DashboardContent() {
   })();
 
   return (
-    <div className="flex flex-1 flex-col gap-8 p-6 md:p-8">
+    <div className="flex min-w-0 max-w-full flex-1 flex-col gap-8 p-4 sm:p-6 md:p-8">
       {/* 今日の日付（西暦） */}
       <p className="text-sm font-medium text-slate-600 dark:text-slate-400" aria-live="polite">
         {todayLabel}
@@ -444,18 +466,21 @@ export function DashboardContent() {
         </p>
       )}
 
-      {/* ① 勤怠パネル（固定） */}
+      {/* ① 勤怠パネル（固定）・当月残業表示 */}
       <div className={CARD_CLASS}>
-        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
             打刻
           </h2>
+          <span className="text-xs font-medium tabular-nums text-slate-600 dark:text-slate-400">
+            当月残業（定時17:30〜）{formatDuration(monthlyOvertimeMinutes)}
+          </span>
         </div>
-        <div className="p-5">
+        <div className="p-4">
           {status && (
-            <div className="mb-4 flex justify-center">
+            <div className="mb-3 flex justify-center">
               <span
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
                   status === "勤務中"
                     ? "bg-emerald-500/15 text-emerald-700"
                     : status === "休憩中"
@@ -464,7 +489,7 @@ export function DashboardContent() {
                 }`}
               >
                 <span
-                  className={`h-2 w-2 rounded-full ${
+                  className={`h-1.5 w-1.5 rounded-full ${
                     status === "退勤済み"
                       ? "bg-slate-400"
                       : "animate-pulse bg-current"
@@ -535,7 +560,7 @@ export function DashboardContent() {
       </ErrorBoundary>
 
       {hasPlan && showAppliedPlan && appliedPlanSummary?.trim() && (
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-5 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="rounded-2xl border border-slate-200/80 border-l-4 border-l-indigo-400 bg-slate-50/80 px-5 py-4 shadow-[0_2px_12px_rgba(30,41,59,0.06)] dark:border-slate-700 dark:border-l-indigo-500 dark:bg-slate-800/50">
           <p className="text-xs font-semibold text-[#1E293B] dark:text-slate-300">
             現在の学習プラン
           </p>
@@ -546,122 +571,111 @@ export function DashboardContent() {
         </div>
       )}
 
-      {/* 勤怠状況・履歴 */}
+      {/* 勤怠状況・カレンダー（見出し・ヘッダー高さを揃えたレイアウト） */}
       <section className={CARD_CLASS}>
-        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#1E293B] dark:text-slate-200">
-            <FileText className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
-            勤怠状況（今日）
+        <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+          <FileText className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
+          <Calendar className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
+          <h2 className="text-sm font-semibold text-[#1E293B] dark:text-slate-200">
+            勤怠状況・カレンダー
           </h2>
         </div>
-        <div className="p-5">
-          <p className="mb-3 text-xs font-medium text-slate-500">
-            {today.date ? String(today.date).replace(/-/g, "/") : "—"}
-          </p>
-          <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                    出勤
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                    退勤
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                    休憩
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                    実労働時間
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-slate-100 dark:border-slate-700">
-                  <td className="px-4 py-3 tabular-nums font-medium text-slate-900 dark:text-slate-200">
-                    {today.clockIn ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums font-medium text-slate-900 dark:text-slate-200">
-                    {today.clockOut ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-slate-600 dark:text-slate-400">
-                    {today.breakStart ?? "—"} ～ {today.breakEnd ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums font-semibold text-slate-900 dark:text-slate-200">
-                    {actualMinutes != null
-                      ? formatDuration(actualMinutes)
-                      : "—"}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section id="history" className={CARD_CLASS}>
-        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#1E293B] dark:text-slate-200">
-            <Calendar className="h-4 w-4 text-[#1E293B] dark:text-slate-400" />
-            打刻履歴（直近1週間）
-          </h2>
-        </div>
-        <div className="p-5">
-          <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-            <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                  日付
-                </th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                  出勤
-                </th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                  退勤
-                </th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                  休憩
-                </th>
-                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">
-                  実労働
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(Array.isArray(last7Dates) ? last7Dates : []).map((date) => {
-                const rec = historyByDate?.[date];
-                const actual = calcActualWorkMinutes(
-                  rec?.clockIn ?? null,
-                  rec?.clockOut ?? null,
-                  rec?.breakStart ?? null,
-                  rec?.breakEnd ?? null,
-                );
+        <div className="p-4 sm:p-5">
+          {/* 1行目: 月ラベルと「直近1週間」を同じ高さで横並び */}
+          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,240px)_1fr] sm:items-center sm:gap-6">
+            <div className="flex h-9 items-center">
+              {monthDates.length > 0 && monthDates[0] && (() => {
+                const [y, m] = monthDates[0].split("-");
                 return (
-                  <tr
-                    key={date}
-                    className="border-b border-slate-100 last:border-0 dark:border-slate-700"
-                  >
-                    <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">
-                      {formatDisplayDate(date)}
-                    </td>
-                    <td className="px-4 py-2.5 tabular-nums text-slate-900 dark:text-slate-200">
-                      {rec?.clockIn ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 tabular-nums text-slate-900 dark:text-slate-200">
-                      {rec?.clockOut ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-400">
-                      {rec?.breakStart ?? "—"}～{rec?.breakEnd ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 tabular-nums font-medium text-slate-900 dark:text-slate-200">
-                      {actual != null ? formatDuration(actual) : "—"}
-                    </td>
-                  </tr>
+                  <span className="text-sm font-semibold tracking-tight text-slate-700 dark:text-slate-300">
+                    {y}年{m}月
+                  </span>
                 );
-              })}
-            </tbody>
-          </table>
+              })()}
+            </div>
+            <div className="flex h-9 items-center sm:justify-start">
+              <span className="text-sm font-semibold tracking-tight text-slate-700 dark:text-slate-300">
+                直近1週間
+              </span>
+            </div>
+          </div>
+
+          {/* 2行目: カレンダーと表を同じ基準で並べる（曜日行と表ヘッダーを同じ高さに） */}
+          <div className="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-[minmax(0,240px)_1fr] sm:gap-8">
+            {/* 左: カレンダー */}
+            {monthDates.length > 0 && (
+              <div className="flex flex-col">
+                {(() => {
+                  const first = monthDates[0];
+                  if (!first) return null;
+                  const d0 = new Date(first + "T12:00:00Z");
+                  const startWeekday = d0.getUTCDay();
+                  const padding: null[] = Array(startWeekday).fill(null);
+                  const todayStr = today?.date ?? "";
+                  const HEADER_H = "h-8";
+                  return (
+                    <>
+                      <div className={`grid grid-cols-7 gap-0.5 text-center text-xs ${HEADER_H}`}>
+                        {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
+                          <div key={w} className="flex items-center justify-center font-medium text-slate-500 dark:text-slate-400">{w}</div>
+                        ))}
+                      </div>
+                      <div className="mt-1 grid grid-cols-7 gap-0.5 text-center text-xs">
+                        {[...padding, ...monthDates].map((date, i) => {
+                          if (!date) return <div key={`pad-${i}`} className="h-7 w-7 sm:h-8 sm:w-8" />;
+                          const rec = monthlyByDate[date];
+                          const hasAttendance = !!(rec?.clockIn ?? rec?.clockOut);
+                          const isToday = date === todayStr;
+                          const dayNum = date.slice(8, 10).replace(/^0/, "");
+                          return (
+                            <div
+                              key={date}
+                              className={`flex h-7 w-7 items-center justify-center rounded-md tabular-nums sm:h-8 sm:w-8 ${
+                                isToday ? "ring-2 ring-[#1E293B] ring-offset-1 dark:ring-slate-400 dark:ring-offset-slate-900" : ""
+                              } ${hasAttendance ? "bg-emerald-500/25 font-semibold text-emerald-800 dark:bg-emerald-400/30 dark:text-emerald-100" : "text-slate-600 dark:text-slate-400"} ${isToday && !hasAttendance ? "bg-slate-100 dark:bg-slate-700/50" : ""}`}
+                              title={hasAttendance ? `${date}: 打刻あり` : date}
+                            >
+                              {dayNum}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500">緑＝打刻　枠＝今日</p>
+                      <Link href="/dashboard/history" className="mt-3 text-xs font-medium text-[#1E293B] underline dark:text-slate-300">
+                        打刻履歴を見る →
+                      </Link>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+            {/* 右: 直近1週間テーブル（ヘッダー高さをカレンダー曜日行と揃える） */}
+            <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800/30">
+              <table className="w-full min-w-[220px] text-left text-sm">
+                <thead>
+                  <tr className="h-8 border-b border-slate-200 bg-slate-50/90 dark:border-slate-600 dark:bg-slate-800/50">
+                    <th className="px-3 font-medium text-slate-600 dark:text-slate-400">日付</th>
+                    <th className="px-3 font-medium text-slate-600 dark:text-slate-400">出勤</th>
+                    <th className="px-3 font-medium text-slate-600 dark:text-slate-400">退勤</th>
+                    <th className="px-3 font-medium text-slate-600 dark:text-slate-400">実労働</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Array.isArray(last7Dates) ? last7Dates : []).map((date) => {
+                    const rec = historyByDate?.[date];
+                    const actual = calcActualWorkMinutes(rec?.clockIn ?? null, rec?.clockOut ?? null, rec?.breakStart ?? null, rec?.breakEnd ?? null);
+                    return (
+                      <tr key={date} className="border-b border-slate-100 last:border-0 dark:border-slate-700">
+                        <td className="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">{formatDisplayDate(date)}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-900 dark:text-slate-200">{rec?.clockIn ?? "—"}</td>
+                        <td className="px-3 py-2 tabular-nums text-slate-900 dark:text-slate-200">{rec?.clockOut ?? "—"}</td>
+                        <td className="px-3 py-2 tabular-nums font-medium text-slate-900 dark:text-slate-200">{actual != null ? formatDuration(actual) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>

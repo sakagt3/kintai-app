@@ -8,6 +8,8 @@ export type SpecialDayEntry = {
   description: string;
   /** 3〜4行の詳細（由来・現代に活かせる教訓）。省略時は description をベースに表示 */
   detail?: string;
+  /** 出典（商用利用時のクレジット表記用） */
+  source?: string;
 };
 
 const SPECIAL_DAYS: Record<string, SpecialDayEntry> = {
@@ -52,6 +54,20 @@ const SPECIAL_DAYS: Record<string, SpecialDayEntry> = {
     description: "感謝を伝える日。「3(サン)9(キュー)」の語呂合わせです。",
     detail:
       "「3(サン)9(キュー)」の語呂合わせで、感謝を伝える日として定着しています。\n感謝は口に出すほど相手も自分も気持ちよくなるもの。今日は一言、ありがとうを伝えましょう。",
+  },
+  "3-10": {
+    name: "東京都平和の日・砂糖の日・マリオの日",
+    description: "東京都平和の日（東京大空襲の日）、砂糖の日（さとうの語呂）、マリオの日（Mar.10→Mario）。",
+    detail:
+      "東京都平和の日：1945年3月10日の東京大空襲にちなみ、平和を願う日として東京都が制定。\n砂糖の日：「さ(3)とう(10)」の語呂合わせ。\nマリオの日：海外で「Mar.10」が「Mario」に見えることから、任天堂公式も祝う記念日です。",
+    source: "東京都・一般社団法人日本記念日協会等に基づく歴史的・慣習的な事実",
+  },
+  "3-11": {
+    name: "パンダ発見の日",
+    description: "1869年、フランスの博物学者アルマン・ダヴィドが中国でジャイアントパンダの存在を西洋に初めて報告した日。",
+    detail:
+      "1869年3月11日、アルマン・ダヴィドが四川省でジャイアントパンダの毛皮を発見し、西洋社会に紹介しました。\n「発見」や「記録」は、日々の小さな気づきを積み重ねることで大きな成果につながります。",
+    source: "歴史的記録に基づく事実",
   },
   "3-14": {
     name: "ホワイトデー",
@@ -176,7 +192,7 @@ export function getSpecialDay(
   month: number,
   day: number,
   year?: number,
-): { name: string; description: string; detail?: string } {
+): { name: string; description: string; detail?: string; source?: string } {
   const key = `${month}-${day}`;
   const special = SPECIAL_DAYS[key];
   if (special) return special;

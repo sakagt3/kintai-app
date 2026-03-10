@@ -6,7 +6,8 @@ import { Newspaper, ExternalLink } from "lucide-react";
 type HeadlineItem = {
   id: string;
   title: string;
-  summary: string;
+  summary?: string;
+  description?: string;
   source?: string;
   url?: string;
   publishedAt?: string;
@@ -18,10 +19,11 @@ export function HeadlineCard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/headline")
+    fetch("/api/news")
       .then((res) => res.json())
-      .then((data: { headline?: HeadlineItem | null }) => {
-        if (!cancelled && data?.headline) setHeadline(data.headline);
+      .then((data: { news?: HeadlineItem | null; headline?: HeadlineItem | null }) => {
+        const item = data?.news ?? data?.headline;
+        if (!cancelled && item) setHeadline(item);
       })
       .catch(() => {
         if (!cancelled) setHeadline(null);
@@ -48,7 +50,7 @@ export function HeadlineCard() {
   if (!headline?.title) return null;
 
   const title = headline.title;
-  const summary = headline.summary ?? "—";
+  const summary = headline.summary ?? headline.description ?? "—";
   const source = headline.source;
   const url = headline.url;
 

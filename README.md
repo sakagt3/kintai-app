@@ -59,8 +59,8 @@ cp .env.example .env
 
 | Variable       | Description (EN) | 説明 (JA) |
 |----------------|------------------|-----------|
-| `DATABASE_URL` | PostgreSQL connection string (pooled). | 接続文字列（プール用）。Supabase/Neon 等の URL。 |
-| `DIRECT_URL`   | Direct connection string for migrations. | マイグレーション用の直接接続URL。 |
+| `DATABASE_URL` | PostgreSQL connection string (pooled). **Supabase**: Use **Transaction mode Pooler** (port **6543**) with `?pgbouncer=true` to avoid "Can't reach database server" on Vercel. Do not use direct `db.xxx.supabase.co:5432` for runtime. | 接続文字列（プール用）。**Supabase** 本番では必ず **トランザクションモード Pooler（port 6543）**＋`?pgbouncer=true` を指定すること。 |
+| `DIRECT_URL`   | Direct connection string for migrations (e.g. Session mode port 5432 or `db.xxx.supabase.co:5432`). | マイグレーション用の直接接続URL。 |
 | `AUTH_SECRET`  | Secret for NextAuth JWT signing. Generate with `openssl rand -base64 32`. | NextAuth の JWT 署名用。32文字以上推奨。 |
 | `AUTH_URL`     | (Optional) App URL in production. Vercel sets this automatically. | （任意）本番のアプリURL。Vercel では未設定で可。 |
 

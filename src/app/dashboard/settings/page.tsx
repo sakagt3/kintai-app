@@ -6,7 +6,9 @@
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, Save } from "lucide-react";
+import Link from "next/link";
+import { signOut } from "next-auth/react";
+import { Settings, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { TOPICS } from "@/lib/topics";
 import { PlanPreview } from "./PlanPreview";
@@ -60,6 +62,7 @@ export default function SettingsPage() {
   const [diagnosisPreviewText, setDiagnosisPreviewText] = useState("");
   const [showQuickDiagnosis, setShowQuickDiagnosis] = useState(false);
   const [masterPlanLoading, setMasterPlanLoading] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -197,6 +200,30 @@ export default function SettingsPage() {
       toast.error("プランの生成に失敗しました。");
     } finally {
       setMasterPlanLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (
+      !confirm(
+        "本当にアカウントを削除しますか？\n勤怠・設定・学習履歴などすべてのデータが削除され、元に戻せません。"
+      )
+    )
+      return;
+    if (!confirm("もう一度確認します。削除してよろしいですか？")) return;
+    setDeletingAccount(true);
+    try {
+      const res = await fetch("/api/user/delete", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        await signOut({ redirect: false });
+        window.location.href = "/";
+        return;
+      }
+      throw new Error(data?.error ?? "削除に失敗しました");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "アカウントの削除に失敗しました");
+      setDeletingAccount(false);
     }
   };
 
@@ -647,6 +674,45 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* 問い合わせはこちら */}
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-2 text-sm font-semibold text-gray-800">
+          お問い合わせ
+        </h2>
+        <p className="mb-4 text-xs text-gray-600">
+          ご質問・ご要望はお問い合わせフォームからお送りください。
+        </p>
+        <Link
+          href="/dashboard/contact"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          問い合わせはこちら
+        </Link>
+      </section>
+
+      {/* アカウントの削除はこちら */}
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-2 text-sm font-semibold text-gray-800">
+          アカウントの削除はこちら
+        </h2>
+        <p className="mb-3 text-xs text-gray-600">
+          ※ 削除すると勤怠・設定・学習履歴などすべてのデータが消え、復元できません。
+        </p>
+        <button
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={deletingAccount}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          {deletingAccount ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
+          アカウントを削除する
+        </button>
       </section>
     </div>
   );

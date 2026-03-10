@@ -26,10 +26,32 @@ function getLast7DaysDateStrings() {
   return dates;
 }
 
+/** 当月（JST）の全日付 YYYY-MM-DD の配列を返す */
+function getCurrentMonthDateStrings() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = jst.getUTCMonth();
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const dates: string[] = [];
+  for (let d = 1; d <= lastDay; d++) {
+    dates.push(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  return dates;
+}
+
+type HistoryRecord = {
+  clockIn: string | null;
+  clockOut: string | null;
+  breakStart: string | null;
+  breakEnd: string | null;
+};
+
 /** 空の勤怠レスポンス（認証・DB 失敗時もクライアントが同じ形で受け取り表示エラーを防ぐ） */
 function emptyAttendanceResponse() {
   const today = getTodayDateString();
   const last7Dates = getLast7DaysDateStrings();
+  const monthDates = getCurrentMonthDateStrings();
   return NextResponse.json({
     today: {
       date: today,
@@ -39,11 +61,13 @@ function emptyAttendanceResponse() {
       breakEnd: null,
     },
     last7Dates,
-    historyByDate: {} as Record<string, { clockIn: string | null; clockOut: string | null; breakStart: string | null; breakEnd: string | null }>,
+    historyByDate: {} as Record<string, HistoryRecord>,
+    monthDates,
+    monthlyByDate: {} as Record<string, HistoryRecord>,
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -51,7 +75,8 @@ export async function GET() {
     }
     const today = getTodayDateString();
     const last7Dates = getLast7DaysDateStrings();
-    const [todayAttendance, historyRecords] = await Promise.all([
+    const monthDates = getCurrentMonthDateStrings();
+    const [todayAttendance, historyRecords, monthlyRecords] = await Promise.all([
       prisma.attendance.findFirst({
         where: { userId: session.user.id, date: today },
         orderBy: { createdAt: "desc" },
@@ -60,26 +85,35 @@ export async function GET() {
         where: { userId: session.user.id, date: { in: last7Dates } },
         orderBy: { date: "desc" },
       }),
+      prisma.attendance.findMany({
+        where: { userId: session.user.id, date: { in: monthDates } },
+        orderBy: { date: "asc" },
+      }),
     ]);
+    const toRecord = (
+      r: { clockIn: string | null; clockOut: string | null; [k: string]: unknown }
+    ): HistoryRecord => ({
+      clockIn: r.clockIn,
+      clockOut: r.clockOut,
+      breakStart: (r as { breakStart?: string | null }).breakStart ?? null,
+      breakEnd: (r as { breakEnd?: string | null }).breakEnd ?? null,
+    });
     const historyByDate = Object.fromEntries(
-      historyRecords.map((r) => [
-        r.date,
-        {
-          clockIn: r.clockIn,
-          clockOut: r.clockOut,
-          breakStart: r.breakStart,
-          breakEnd: r.breakEnd,
-        },
-      ]),
+      historyRecords.map((r) => [r.date, toRecord(r)]),
     );
+    const monthlyByDate = Object.fromEntries(
+      monthlyRecords.map((r) => [r.date, toRecord(r)]),
+    );
+    const ext = (x: { clockIn: string | null; clockOut: string | null }) =>
+      x as { breakStart?: string | null; breakEnd?: string | null };
     return NextResponse.json({
       today: todayAttendance
         ? {
             date: today,
             clockIn: todayAttendance.clockIn,
             clockOut: todayAttendance.clockOut,
-            breakStart: todayAttendance.breakStart,
-            breakEnd: todayAttendance.breakEnd,
+            breakStart: ext(todayAttendance).breakStart ?? null,
+            breakEnd: ext(todayAttendance).breakEnd ?? null,
           }
         : {
             date: today,
@@ -90,6 +124,8 @@ export async function GET() {
           },
       last7Dates,
       historyByDate,
+      monthDates,
+      monthlyByDate,
     });
   } catch (e) {
     console.error("[GET /api/attendance]", e);
@@ -157,12 +193,12 @@ export async function POST(request: Request) {
       } else if (type === "BREAK_START") {
         await prisma.attendance.update({
           where: { id: existing.id },
-          data: { breakStart: time },
+          data: { breakStart: time } as Parameters<typeof prisma.attendance.update>[0]["data"],
         });
       } else {
         await prisma.attendance.update({
           where: { id: existing.id },
-          data: { breakEnd: time },
+          data: { breakEnd: time } as Parameters<typeof prisma.attendance.update>[0]["data"],
         });
       }
     } else {

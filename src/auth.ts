@@ -29,6 +29,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (matches) {
             const u = user as { id: string; email: string; name: string | null; image?: string | null; role: string };
+            await prisma.loginHistory
+              .create({ data: { userId: u.id } })
+              .catch((err: unknown) => console.error("[auth] LoginHistory create failed:", err));
             return {
               id: u.id,
               email: u.email,
@@ -67,3 +70,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   secret: process.env.AUTH_SECRET ?? "dev-secret-at-least-32-characters-long",
 });
+
+/** 管理者かどうか（role === "admin" または 指定メールの特例） */
+export function isAdminUser(session: { user?: { email?: string | null; role?: string } | null } | null): boolean {
+  if (!session?.user) return false;
+  const role = (session.user as { role?: string }).role;
+  const email = (session.user as { email?: string | null }).email?.trim().toLowerCase();
+  return role === "admin" || email === "yuohdai33@gmail.com";
+}

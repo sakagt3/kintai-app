@@ -22,7 +22,10 @@ export function SpecialDayCard() {
     );
   }
   const name = special?.name ?? "—";
+  const detail = (special as { detail?: string })?.detail;
   const description = special?.description ?? "";
+  const source = (special as { source?: string })?.source;
+  const body = (detail && detail.trim() !== "") ? detail : description;
   return (
     <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-800/40 dark:bg-amber-950/20">
       <div className="flex items-start gap-3">
@@ -31,9 +34,17 @@ export function SpecialDayCard() {
           <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
             今日は何の日
           </p>
-          <p className="mt-1 text-sm font-medium text-amber-900 dark:text-amber-100">
-            {name} — {description}
+          <p className="mt-1 text-sm font-semibold text-amber-900 dark:text-amber-100">
+            {name}
           </p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+            {body}
+          </p>
+          {source && (
+            <p className="mt-3 text-xs text-amber-700/80 dark:text-amber-300/80">
+              出典：{source}
+            </p>
+          )}
         </div>
       </div>
     </div>

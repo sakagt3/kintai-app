@@ -1,7 +1,7 @@
 /**
  * Prisma クライアントのシングルトン。
- * 本番（Vercel 等）では DATABASE_URL（Pooler）を優先し接続数・タイムアウトを防ぐ。
- * .env の引用符を除去してから使用する。
+ * Supabase 本番（Vercel 等）では必ず DATABASE_URL に「トランザクションモード Pooler」
+ * （port 6543 + ?pgbouncer=true）を設定し、DIRECT_URL に直接接続（port 5432）を設定してください。
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -11,15 +11,15 @@ function sanitizeDbUrl(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   let url = raw.trim().replace(/^["']|["']$/g, "");
   if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) return undefined;
-  // Supabase では SSL が必須のことが多い（本番・Vercel で接続エラーを防ぐ）
+  // Supabase: SSL 必須 & 本番では Pooler(6543) を推奨（db.xxx:5432 は Vercel から届かないことがある）
   if (url.includes("supabase") && !url.includes("sslmode=")) {
     url += url.includes("?") ? "&sslmode=require" : "?sslmode=require";
   }
   return url;
 }
 
-// サーバーレスでは Pooler (DATABASE_URL) を優先。未設定時は DIRECT_URL にフォールバック
-const dbUrl = sanitizeDbUrl(process.env.DATABASE_URL || process.env.DIRECT_URL);
+// ランタイムは DATABASE_URL のみ使用（Pooler 推奨）。DIRECT_URL は prisma migrate 用
+const dbUrl = sanitizeDbUrl(process.env.DATABASE_URL);
 
 export const prisma =
   globalForPrisma.prisma ||
