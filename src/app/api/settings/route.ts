@@ -2,6 +2,7 @@
  * 設定API: GET でユーザー設定・プロフィール取得、PATCH で設定・名前を更新する。
  * 学習トピック・カスタム目標・クイズ出題数・表示ON/OFF・表示ボリュームを含む。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";

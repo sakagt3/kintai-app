@@ -3,6 +3,7 @@
  * 外部キー制約を解消するため、User に紐づく Attendance / LoginHistory をはじめ
  * 関連データをすべて deleteMany で一括削除してから、最後に User を削除する。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

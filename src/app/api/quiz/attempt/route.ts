@@ -2,6 +2,7 @@
  * クイズ回答を保存し、忘却曲線に基づく次回復習日（nextReviewAt）を設定する。
  * 正解: +3日、不正解: +1日で再出題。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

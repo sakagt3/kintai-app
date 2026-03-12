@@ -3,6 +3,7 @@
  * 実行者が admin または yuohdai33@gmail.com であることをサーバーで検証する。
  * 削除履歴は可能なら記録（テーブルが無くても削除は成功させる）。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth, isAdminUser } from "@/auth";
 import { prisma } from "@/lib/prisma";

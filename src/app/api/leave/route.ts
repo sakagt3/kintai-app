@@ -1,6 +1,7 @@
 /**
  * 休暇申請API: GET で自分の申請一覧を取得、POST で有給・欠勤などの申請を登録する
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

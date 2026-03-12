@@ -2,6 +2,7 @@
  * 自分自身のアカウントを削除する。User 削除前に Attendance / LoginHistory 等を
  * deleteMany で一括削除。削除履歴は可能なら記録（テーブルが無くても削除は成功させる）。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

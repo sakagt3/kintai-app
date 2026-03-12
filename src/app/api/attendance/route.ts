@@ -1,6 +1,7 @@
 /**
  * 勤怠API: GET で当日・直近7日分の勤怠を取得、POST で出勤・退勤・休憩開始・休憩終了を打刻する
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

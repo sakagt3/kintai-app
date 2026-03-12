@@ -1,6 +1,7 @@
 /**
  * 営業トーク・シミュレーター: クイズの知識を「15秒で客先に説明」した内容をAIがフィードバック。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";

@@ -1,6 +1,7 @@
 /**
  * 勤怠履歴API: 指定年月の打刻一覧を返す（打刻履歴専用ページ用）
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

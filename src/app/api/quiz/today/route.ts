@@ -1,6 +1,7 @@
 /**
  * 今日のクイズ出題API。忘却曲線に基づき「復習すべき問題」を優先し、残りをランダムで補う。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

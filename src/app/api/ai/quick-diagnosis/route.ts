@@ -1,6 +1,7 @@
 /**
  * 1分クイック診断: 3問の回答からAIがレベルを推定し「君は〇〇だね。このプランはどう？」と提案。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";

@@ -3,6 +3,7 @@
  * 学習目標とレベルに応じて「明日のクイズ3問」と「ニュース解説サンプル」を生成。
  * OPENAI_API_KEY 未設定時はモックストリームを返す。
  */
+export const dynamic = "force-dynamic";
 import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";

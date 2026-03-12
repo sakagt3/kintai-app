@@ -2,6 +2,7 @@
  * クイズ回答送信API。選択肢のインデックスを受け取り正解か判定し、
  * エビングハウスに基づく次回復習日を計算して記録する。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

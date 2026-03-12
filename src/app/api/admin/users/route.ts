@@ -1,6 +1,7 @@
 /**
  * 管理者用: 全ユーザー一覧を返す。admin または yuohdai33@gmail.com の場合のみ許可。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth, isAdminUser } from "@/auth";
 import { prisma } from "@/lib/prisma";

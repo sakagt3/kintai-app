@@ -3,6 +3,7 @@
  * ユーザーの要望（自由記述）に基づき「今後どのような問題・トピックを毎日ランダムに生成するか」の指針を1つ返す。
  * 設定画面で「この内容で学習を開始する」時に呼び、UserSettings.appliedPlanSummary に保存する。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";

@@ -2,6 +2,7 @@
  * 管理者用: 指定ユーザーの role を更新する。
  * 実行者が admin または yuohdai33@gmail.com であることをサーバーで検証する。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth, isAdminUser } from "@/auth";
 import { prisma } from "@/lib/prisma";

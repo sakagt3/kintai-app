@@ -2,6 +2,7 @@
  * 今日のN問を取得。復習（忘却曲線）分を混ぜ、残りをLLMで新規生成。
  * 日付ごとに問題が変わるようプロンプトに本日の日付を含める。A=トピック選択時は appliedPlanSummary またはトピックから指針を組み立てる。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";

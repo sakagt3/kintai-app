@@ -2,6 +2,7 @@
  * 詳細プラン作成API。「この内容でプラン作成」1ボタンで、
  * 背景説明・具体的な運用イメージ（5〜10件サンプル）・忘却曲線の一文を返す。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";

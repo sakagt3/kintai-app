@@ -1,6 +1,7 @@
 /**
  * 学習履歴（プラン適用・診断結果）を保存。パーソナライズ・生成AIのコンテキスト用。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

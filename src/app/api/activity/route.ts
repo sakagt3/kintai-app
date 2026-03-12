@@ -1,6 +1,7 @@
 /**
  * 閲覧履歴（ニュース・トピック等）を記録。パーソナライズ精度向上用。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

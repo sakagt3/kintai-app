@@ -1,6 +1,7 @@
 /**
  * 忘却曲線に基づく「次回復習予定」一覧。インジケーター表示用。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";

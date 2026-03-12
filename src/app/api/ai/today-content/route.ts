@@ -2,6 +2,7 @@
  * 今日の1問を、保存された学習プロンプト（UserSettings）を元にLLMでその場生成。問題形式（4択）のみ。
  * ダッシュボード読み込み時に呼び、難易度は learningLevel に準拠。日付ごとに内容が変わる。
  */
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
