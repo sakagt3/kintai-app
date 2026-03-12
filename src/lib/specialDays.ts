@@ -24,6 +24,21 @@ const SPECIAL_DAYS: Record<string, SpecialDayEntry> = {
       "初夢は新年最初に見る夢のことで、昔から「一富士二鷹三なすび」が縁起良いとされます（富士＝無事、鷹＝高い、なすび＝成す）。\n江戸時代には良い初夢を見るために、七福神の宝船の絵を枕の下に敷く習慣があり、今でも正月の季語として使われます。",
     source: "江戸期の風習・季語に基づく",
   },
+  "1-3": { name: "瞳の日", description: "「ひ(1)み(3)」の語呂で瞳を大切にする日。", detail: "1と3で「ひみ」（瞳）の語呂合わせから。目の健康やコンタクトの手入れを意識する日として普及。", source: "日本記念日協会" },
+  "1-4": { name: "石の日", description: "「い(1)し(4)」の語呂で石に感謝する日。", detail: "「い(1)し(4)」の語呂。宝石や墓石など石にまつわる文化を見直す日。", source: "日本記念日協会" },
+  "1-5": { name: "いちごの日", description: "「い(1)ち(1)ご(5)」の語呂。", detail: "「いちご」の語呂合わせで、いちごを楽しむ日。", source: "日本記念日協会" },
+  "1-6": { name: "色の日", description: "「い(1)ろ(6)」の語呂。", detail: "「いろ」の語呂で、色に親しむ日。", source: "語呂合わせ" },
+  "1-7": { name: "人日の節句・七草粥", description: "七草粥で無病息災を願う日。", detail: "五節句の一つ。セリ・ナズナ・ゴギョウ・ハコベラ・ホトケノザ・スズナ・スズシロの七草で粥を作り、一年の無病息災を願います。", source: "五節句・民俗" },
+  "2-1": { name: "テレビ放送記念日", description: "1953年この日、NHK東京テレビが本放送を開始。", detail: "1953年2月1日、NHKが日本初のテレビ本放送を開始した日。", source: "放送史" },
+  "2-11": { name: "建国記念の日", description: "建国をしのび、国を愛する心を養う祝日。", detail: "神武天皇の即位日を建国の日として祝日法で定められた日。1966年制定。", source: "祝日法" },
+  "3-1": { name: "マーチの日・防災用品点検の日", description: "3月(March)の1日。防災用品を点検する日。", detail: "「3」と「1」で「さい(3)ぶ(1)」とも。関東大震災が9月1日であることから、半年後の3月1日と9月1日に防災用品を点検する習慣が推奨されています。", source: "防災啓発" },
+  "3-2": { name: "ミニチュアの日", description: "「3(ミニ)2(チュア)」の語呂。", detail: "ミニチュアやフィギュアを楽しむ日。", source: "語呂合わせ" },
+  "3-4": { name: "ミシンの日", description: "「3(ミ)4(シン)」の語呂。", detail: "ミシンに感謝し、裁縫を楽しむ日。", source: "語呂合わせ" },
+  "3-5": { name: "サンゴの日", description: "「3(サン)5(ゴ)」の語呂。", detail: "サンゴ礁の保護や海の環境を考える日。", source: "語呂合わせ" },
+  "3-6": { name: "スポーツの日（3月6日）・エスカレーターの日", description: "1898年この日、東京・浅草に日本初のエスカレーター設置。", detail: "1914年3月6日、東京・上野の大正博覧会に日本初の実用エスカレーターが設置されたとの記録も。", source: "歴史" },
+  "3-7": { name: "消防記念日", description: "1948年消防組織法施行。消防の仕事に感謝する日。", detail: "1948年3月7日、消防組織法が施行され、自治体消防が発足。消防職員・団員に感謝する日。", source: "総務省消防庁" },
+  "3-15": { name: "世界消費者権利の日", description: "消費者権利を守る国際デー。", detail: "1962年ケネディ大統領が消費者4つの権利を表明。1983年国際消費者機構が3月15日を世界消費者権利の日と定めました。", source: "国際デー" },
+  "3-20": { name: "電卓の日", description: "1974年、国産電卓が1万円を切った記念。", detail: "1974年3月20日、シャープが電卓を1万円以下で発売。電卓の普及を記念する日。", source: "業界史" },
   "2-3": {
     name: "節分",
     description: "立春の前日。豆まきで鬼（邪気）を払い、福を迎える日。",
@@ -72,6 +87,20 @@ const SPECIAL_DAYS: Record<string, SpecialDayEntry> = {
     detail:
       "1869年3月11日、フランスの博物学者アルマン・ダヴィド（Père David）が、中国・四川省で地元の猟師からジャイアントパンダの毛皮を見せられ、西洋に初めて「黑白熊」として学術報告した日にちなみます。\nそれまで西洋ではパンダの存在が知られておらず、この報告がきっかけでジャイアントパンダが世界的に知られるようになりました。",
     source: "アルマン・ダヴィドの報告・学術史に基づく",
+  },
+  "3-12": {
+    name: "財布の日・スイーツの日",
+    description: "財布の日（さ(3)い(1)ふ(2)の語呂合わせ）、スイーツの日。",
+    detail:
+      "【財布の日】「さ(3)い(1)ふ(2)」の語呂合わせから、財布の日として日本記念日協会に登録されています。財布を大切にし、金運を願う日。\n【スイーツの日】「3(スリー)1(ワン)2(ツー)」でスイーツの日。甘いものを楽しむ日として定着しています。",
+    source: "日本記念日協会ほか",
+  },
+  "3-13": {
+    name: "新選組の日・サンドイッチの日",
+    description: "新選組の日（1863年結成）、サンドイッチの日（語呂）。",
+    detail:
+      "【新選組の日】1863年3月13日（旧暦2月4日）、京都守護職・松平容保の配下として壬生浪士組が結成され、のちの新選組の母体となりました。\n【サンドイッチの日】「3(スリー)1(ワン)3(スリー)」の語呂でサンドイッチの日。イギリスのサンドイッチ伯爵に由来する料理を楽しむ日です。",
+    source: "歴史・日本記念日協会",
   },
   "3-14": {
     name: "ホワイトデー",
@@ -194,42 +223,54 @@ const SPECIAL_DAYS: Record<string, SpecialDayEntry> = {
   },
 };
 
+/** 曜日メッセージ（サブ表示用。メインは常に記念日） */
 const WEEKDAY_MESSAGES: Record<number, string> = {
-  0: "日曜日。ゆっくり休んで明日に備えましょう。",
-  1: "月曜日。今週も張り切っていきましょう。",
-  2: "火曜日。一週間のペースが整ってくる日です。",
-  3: "水曜日。週の折り返し。あと少しで金曜日です。",
-  4: "木曜日。明日で今週も終わり。ラストスパートです。",
-  5: "金曜日。今週お疲れ様でした。良い週末を。",
-  6: "土曜日。週末。リフレッシュしてまた来週に備えましょう。",
+  0: "日曜日。",
+  1: "月曜日。",
+  2: "火曜日。",
+  3: "水曜日。",
+  4: "木曜日。",
+  5: "金曜日。",
+  6: "土曜日。",
 };
 
-export function getSpecialDay(
-  month: number,
-  day: number,
-  year?: number,
-): { name: string; description: string; detail?: string; source?: string } {
-  const key = `${month}-${day}`;
-  const special = SPECIAL_DAYS[key];
-  if (special) return special;
-  const y = year ?? 2000;
-  const d = new Date(Date.UTC(y, month - 1, day));
-  const dayOfWeek = d.getUTCDay();
-  const fallback = WEEKDAY_MESSAGES[dayOfWeek];
-  return {
-    name: `${month}月${day}日`,
-    description: fallback,
-    detail: undefined,
-  };
-}
-
-export function getTodaysSpecialDay(): {
+export type SpecialDayResult = {
   name: string;
   description: string;
   detail?: string;
   source?: string;
-} {
-  const now = new Date();
+  /** 曜日（サブ表示用）。メインは常に記念日。 */
+  weekdaySub?: string;
+};
+
+/**
+ * 月・日をキーに記念日を返す。登録がない日は記念日形式のフォールバックを返し、曜日は weekdaySub でサブ表示する。
+ */
+export function getSpecialDay(
+  month: number,
+  day: number,
+  year?: number,
+): SpecialDayResult {
+  const key = `${month}-${day}`;
+  const special = SPECIAL_DAYS[key];
+  if (special) return { ...special };
+  const y = year ?? 2000;
+  const d = new Date(Date.UTC(y, month - 1, day));
+  const dayOfWeek = d.getUTCDay();
+  const weekdaySub = WEEKDAY_MESSAGES[dayOfWeek];
+  return {
+    name: `${month}月${day}日`,
+    description:
+      "この日も日本では様々な記念日が制定・登録されています。日本記念日協会などで調べてみましょう。",
+    detail: undefined,
+    source: undefined,
+    weekdaySub,
+  };
+}
+
+/** 現在の日付（JST）で「今日は何の日」を取得。テスト時は引数で日付を上書き可能。 */
+export function getTodaysSpecialDay(overrideDate?: Date): SpecialDayResult {
+  const now = overrideDate ?? new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const year = jst.getUTCFullYear();
   const month = jst.getUTCMonth() + 1;

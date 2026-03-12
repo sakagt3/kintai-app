@@ -25,6 +25,7 @@ export function SpecialDayCard() {
   const detail = (special as { detail?: string })?.detail;
   const description = special?.description ?? "";
   const source = (special as { source?: string })?.source;
+  const weekdaySub = (special as { weekdaySub?: string })?.weekdaySub;
   const body = (detail && detail.trim() !== "") ? detail : description;
   return (
     <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-800/40 dark:bg-amber-950/20">
@@ -40,6 +41,11 @@ export function SpecialDayCard() {
           <p className="mt-2 whitespace-pre-line text-base leading-relaxed text-amber-900/90 dark:text-amber-100/90 sm:text-sm">
             {body}
           </p>
+          {weekdaySub && (
+            <p className="mt-2 text-xs text-amber-700/70 dark:text-amber-300/70">
+              {weekdaySub}
+            </p>
+          )}
           {source && (
             <p className="mt-3 text-xs text-amber-700/80 dark:text-amber-300/80">
               出典：{source}
