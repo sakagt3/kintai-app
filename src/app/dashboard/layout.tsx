@@ -2,9 +2,13 @@ import { auth, isAdminUser } from "@/auth";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/app/dashboard/DashboardShell";
 
-/** auth() が headers を使うため静的生成を無効化 */
 export const dynamic = "force-dynamic";
 
+/**
+ * スマホ（lg未満）絶対ルール:
+ * - サイドバーは display: none !important で完全消去（Shell側でDOMに出さない）
+ * - メインは margin-left: 0、横幅 100%
+ */
 export default async function DashboardLayout({
   children,
 }: {
@@ -32,8 +36,16 @@ export default async function DashboardLayout({
   const isAdmin = isAdminUser(session);
 
   return (
-    <DashboardShell displayName={displayName} isAdmin={isAdmin}>
-      {children}
-    </DashboardShell>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 1023px) {
+          [data-dashboard-main] { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }
+          [data-dashboard-sidebar] { display: none !important; }
+        }
+      `}} />
+      <DashboardShell displayName={displayName} isAdmin={isAdmin}>
+        {children}
+      </DashboardShell>
+    </>
   );
 }

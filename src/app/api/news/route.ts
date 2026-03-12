@@ -1,12 +1,10 @@
+export const dynamic = "force-dynamic";
 /**
  * 本日のニュースヘッドラインを無料・登録不要のRSSから取得。
- * NHKは規約が厳しいため使用しない。見出し＋短い概要＋「詳細を読む」リンクのみ（引用の範囲で法的にクリーン）。
- * アクセスのたびにRSSを取得するため、毎日更新される仕組み。
+ * 見出し＋記事冒頭150文字程度の要約＋「もっと読む」リンクをJSONで返す（引用の範囲で法的にクリーン）。
  */
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
-
-export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const TOYO_KEIZAI_RSS = "https://toyokeizai.net/list/feed/rss";

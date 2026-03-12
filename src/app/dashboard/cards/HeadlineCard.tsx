@@ -74,7 +74,7 @@ export function HeadlineCard() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#1E293B]/30 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:min-h-0 sm:px-2.5 sm:py-1.5 sm:text-xs"
               >
-                {source ? `出典：${source}で続きを読む` : "続きを読む"}
+                もっと読む
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             )}

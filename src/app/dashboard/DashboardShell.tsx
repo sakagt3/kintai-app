@@ -132,9 +132,9 @@ export function DashboardShell({
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
-      {/* サイドバー: 1024px以上のときだけDOMに出す。スマホでは描画しないので確実に非表示 */}
+      {/* サイドバー: lg未満では表示しない。layoutのstyleで data-dashboard-sidebar も強制非表示 */}
       {isDesktop && (
-        <div className="flex h-full w-56 shrink-0 flex-col">
+        <div data-dashboard-sidebar className="flex h-full w-56 shrink-0 flex-col">
           <aside
             className="flex h-full w-full flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
             aria-label="メインメニュー"
@@ -150,8 +150,12 @@ export function DashboardShell({
         </div>
       )}
 
-      {/* メイン: スマホは全幅（サイドバーなし）、PCはサイドバー隣 */}
-      <main className={`relative min-w-0 w-full flex-1 flex flex-col overflow-x-hidden ${isDesktop ? "pb-0" : "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"}`}>
+      {/* メイン: スマホは ml-0・100%幅（layoutのstyleで強制）、PCはサイドバー隣 */}
+      <main
+        data-dashboard-main
+        style={!isDesktop ? { marginLeft: 0, width: "100%", maxWidth: "100%" } : undefined}
+        className={`relative min-w-0 w-full flex-1 flex flex-col overflow-x-hidden ${isDesktop ? "pb-0" : "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"}`}
+      >
         {/* モバイル専用: 上部固定ヘッダー（ハンバーガー）。isDesktop 時は描画しない */}
         {!isDesktop && (
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95">
