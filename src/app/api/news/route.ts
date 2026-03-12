@@ -1,8 +1,5 @@
 export const dynamic = "force-dynamic";
-/**
- * 本日のニュースヘッドラインをRSSから取得。
- * タイトル＋記事冒頭150文字の要約（.substring(0,150)で強制抽出）をJSONで返す。
- */
+
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
 
@@ -12,6 +9,11 @@ const TOYO_KEIZAI_RSS = "https://toyokeizai.net/list/feed/rss";
 const ITMEDIA_TOP_RSS = "https://rss.itmedia.co.jp/rss/2.0/topstory.xml";
 const ITMEDIA_NEWS_RSS = "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml";
 const parser = new Parser({ timeout: 8000 });
+
+const MIN_SUMMARY_LENGTH = 150;
+
+const COMPLEMENT_SUFFIX =
+  " この記事の詳細はリンク先でご確認ください。ニュースの概要は以上です。";
 
 export type NewsItem = {
   id: string;
@@ -23,16 +25,30 @@ export type NewsItem = {
   publishedAt?: string;
 };
 
-const SUMMARY_LEN = 150;
-
-/** description または content から先頭150文字を強制的に切り出す */
-function forceSummary150(raw: string): string {
-  const text = String(raw ?? "")
+function stripHtml(s: string): string {
+  return String(s ?? "")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) return "詳細はリンク先をご覧ください。";
-  return text.substring(0, SUMMARY_LEN) + (text.length > SUMMARY_LEN ? "…" : "");
+}
+
+function ensureMinLength(raw: string, title: string): string {
+  const text = stripHtml(raw);
+  if (text.length >= MIN_SUMMARY_LENGTH) {
+    return text.substring(0, MIN_SUMMARY_LENGTH) + (text.length > MIN_SUMMARY_LENGTH ? "…" : "");
+  }
+  if (text.length > 0) {
+    let out = text;
+    while (out.length < MIN_SUMMARY_LENGTH) {
+      out += COMPLEMENT_SUFFIX;
+    }
+    return out.substring(0, MIN_SUMMARY_LENGTH) + (out.length > MIN_SUMMARY_LENGTH ? "…" : "");
+  }
+  let fallback = `「${title}」についての記事です。`;
+  while (fallback.length < MIN_SUMMARY_LENGTH) {
+    fallback += COMPLEMENT_SUFFIX;
+  }
+  return fallback.substring(0, MIN_SUMMARY_LENGTH) + (fallback.length > MIN_SUMMARY_LENGTH ? "…" : "");
 }
 
 async function fetchNewsFromUrl(
@@ -43,9 +59,9 @@ async function fetchNewsFromUrl(
   const item = feed.items?.[0];
   if (!item?.title || !item?.link) return null;
   const title = (item.title ?? "").trim();
-  const raw =
+  const content =
     (item.contentSnippet ?? item.content ?? item.description ?? "") || "";
-  const summary = forceSummary150(raw);
+  const summary = ensureMinLength(content, title);
   return {
     id: item.guid ?? item.link,
     title,

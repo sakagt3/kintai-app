@@ -31,15 +31,8 @@ export default async function DashboardLayout({
   const isAdmin = isAdminUser(session);
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media (max-width: 1023px) {
-          [data-dashboard-main] { margin-left: 0 !important; }
-        }
-      `}} />
-      <DashboardShell displayName={displayName} isAdmin={isAdmin}>
-        {children}
-      </DashboardShell>
-    </>
+    <DashboardShell displayName={displayName} isAdmin={isAdmin}>
+      {children}
+    </DashboardShell>
   );
 }
