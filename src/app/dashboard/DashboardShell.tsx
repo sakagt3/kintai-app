@@ -40,46 +40,21 @@ function SidebarContent({
   return (
     <>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        <Link
-          href="/dashboard"
-          className={navLinkClass(pathname === "/dashboard")}
-          onClick={onLinkClick}
-        >
-          <LayoutDashboard className="h-5 w-5 shrink-0" />
-          ダッシュボード
+        <Link href="/dashboard" className={navLinkClass(pathname === "/dashboard")} onClick={onLinkClick}>
+          <LayoutDashboard className="h-5 w-5 shrink-0" /> ダッシュボード
         </Link>
-        <Link
-          href="/dashboard/history"
-          className={navLinkClass(pathname === "/dashboard/history")}
-          onClick={onLinkClick}
-        >
-          <History className="h-5 w-5 shrink-0" />
-          打刻履歴
+        <Link href="/dashboard/history" className={navLinkClass(pathname === "/dashboard/history")} onClick={onLinkClick}>
+          <History className="h-5 w-5 shrink-0" /> 打刻履歴
         </Link>
-        <Link
-          href="/dashboard/leave"
-          className={navLinkClass(pathname === "/dashboard/leave")}
-          onClick={onLinkClick}
-        >
-          <CalendarPlus className="h-5 w-5 shrink-0" />
-          休暇申請
+        <Link href="/dashboard/leave" className={navLinkClass(pathname === "/dashboard/leave")} onClick={onLinkClick}>
+          <CalendarPlus className="h-5 w-5 shrink-0" /> 休暇申請
         </Link>
-        <Link
-          href="/dashboard/settings"
-          className={navLinkClass(pathname === "/dashboard/settings")}
-          onClick={onLinkClick}
-        >
-          <Settings className="h-5 w-5 shrink-0" />
-          設定
+        <Link href="/dashboard/settings" className={navLinkClass(pathname === "/dashboard/settings")} onClick={onLinkClick}>
+          <Settings className="h-5 w-5 shrink-0" /> 設定
         </Link>
         {isAdmin && (
-          <Link
-            href="/admin"
-            className={navLinkClass(pathname.startsWith("/admin"))}
-            onClick={onLinkClick}
-          >
-            <Shield className="h-5 w-5 shrink-0" />
-            管理者
+          <Link href="/admin" className={navLinkClass(pathname.startsWith("/admin"))} onClick={onLinkClick}>
+            <Shield className="h-5 w-5 shrink-0" /> 管理者
           </Link>
         )}
       </nav>
@@ -92,18 +67,25 @@ function SidebarContent({
             signOut({ callbackUrl: "/" });
           }}
         >
-          <LogOut className="h-5 w-5 shrink-0" />
-          ログアウト
+          <LogOut className="h-5 w-5 shrink-0" /> ログアウト
         </button>
       </div>
     </>
   );
 }
 
-function Sidebar({ displayName, pathname, isAdmin }: { displayName: string; pathname: string; isAdmin: boolean }) {
+function Sidebar({
+  displayName,
+  pathname,
+  isAdmin,
+}: {
+  displayName: string;
+  pathname: string;
+  isAdmin: boolean;
+}) {
   return (
     <aside
-      className="flex h-full w-56 shrink-0 flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
+      className="flex h-full w-64 shrink-0 flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
       aria-label="メインメニュー"
     >
       <div className="flex items-center border-b border-white/10 px-4 py-5">
@@ -132,18 +114,22 @@ export function DashboardShell({ displayName, isAdmin, children }: DashboardShel
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
-      {/* スマホ時は Sidebar を DOM に一切出さない（React 条件分岐で物理削除） */}
-      {isMobile ? null : <Sidebar displayName={displayName} pathname={pathname} isAdmin={isAdmin} />}
+      {/* isMobile（1024px未満）のとき Sidebar を return null で DOM から物理的に消去 */}
+      {isMobile ? null : (
+        <div className="fixed inset-y-0 left-0 z-10 w-64">
+          <Sidebar displayName={displayName} pathname={pathname} isAdmin={isAdmin} />
+        </div>
+      )}
 
       <main
         data-dashboard-main
-        className={`relative min-w-0 flex-1 flex flex-col overflow-x-hidden ${
+        className={`relative min-w-0 flex-1 flex flex-col overflow-x-hidden ml-0 lg:ml-64 ${
           isMobile ? "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]" : "pb-0"
         }`}
       >
-        {/* モバイル専用: 画面最上部の固定ヘッダー ＋ ハンバーガーメニュー */}
+        {/* スマホ時のみ: 画面最上部に h-16 の固定ヘッダー ＋ ハンバーガーメニュー */}
         {isMobile && (
-          <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95">
+          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95">
             <button
               type="button"
               aria-label="メニューを開く"
@@ -161,7 +147,6 @@ export function DashboardShell({ displayName, isAdmin, children }: DashboardShel
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </main>
 
-      {/* モバイル時のみ: ハンバーガーから開くドロワー */}
       {isMobile && drawerOpen && (
         <>
           <button
@@ -200,36 +185,28 @@ export function DashboardShell({ displayName, isAdmin, children }: DashboardShel
         >
           <Link
             href="/dashboard"
-            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${
-              pathname === "/dashboard" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"
-            }`}
+            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${pathname === "/dashboard" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}
           >
             <LayoutDashboard className="h-5 w-5 shrink-0" />
             <span className="text-[10px] font-medium">ホーム</span>
           </Link>
           <Link
             href="/dashboard/history"
-            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${
-              pathname === "/dashboard/history" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"
-            }`}
+            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${pathname === "/dashboard/history" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}
           >
             <History className="h-5 w-5 shrink-0" />
             <span className="text-[10px] font-medium">履歴</span>
           </Link>
           <Link
             href="/dashboard/leave"
-            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${
-              pathname === "/dashboard/leave" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"
-            }`}
+            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${pathname === "/dashboard/leave" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}
           >
             <CalendarPlus className="h-5 w-5 shrink-0" />
             <span className="text-[10px] font-medium">休暇</span>
           </Link>
           <Link
             href="/dashboard/settings"
-            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${
-              pathname === "/dashboard/settings" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"
-            }`}
+            className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${pathname === "/dashboard/settings" ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}
           >
             <Settings className="h-5 w-5 shrink-0" />
             <span className="text-[10px] font-medium">設定</span>
@@ -237,9 +214,7 @@ export function DashboardShell({ displayName, isAdmin, children }: DashboardShel
           {isAdmin && (
             <Link
               href="/admin"
-              className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${
-                pathname.startsWith("/admin") ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"
-              }`}
+              className={`flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 touch-manipulation ${pathname.startsWith("/admin") ? "text-[#1E293B] dark:text-white" : "text-slate-500 dark:text-slate-400"}`}
             >
               <Shield className="h-5 w-5 shrink-0" />
               <span className="text-[10px] font-medium">管理</span>

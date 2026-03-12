@@ -27,8 +27,8 @@ import { useMounted } from "@/hooks/useMounted";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PunchPanel } from "./PunchPanel";
 import { TodayAiContent } from "./TodayAiContent";
-import { HeadlineCard } from "./cards/HeadlineCard";
-import { SpecialDayCard } from "./cards/SpecialDayCard";
+import { News } from "@/components/News";
+import { Anniversary } from "@/components/Anniversary";
 import { AiTermCard } from "./cards/AiTermCard";
 import { TOPICS } from "@/lib/topics";
 import Link from "next/link";
@@ -370,7 +370,7 @@ export function DashboardContent() {
         title: "今日は何の日",
         content: (
           <ErrorBoundary sectionName="今日は何の日">
-            <SpecialDayCard />
+            <Anniversary />
           </ErrorBoundary>
         ),
       },
@@ -386,7 +386,7 @@ export function DashboardContent() {
         title: "本日のヘッドライン（最重要ニュース）",
         content: (
           <ErrorBoundary sectionName="ヘッドライン">
-            <HeadlineCard />
+            <News />
           </ErrorBoundary>
         ),
       },
