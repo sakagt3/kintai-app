@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -26,121 +26,111 @@ type DashboardShellProps = {
   children: React.ReactNode;
 };
 
+/** サイドバー内のナビ＋ログアウト（PC用とモバイルドロワー用で共通） */
+function SidebarNav({
+  pathname,
+  isAdmin,
+  onNavClick,
+}: {
+  pathname: string;
+  isAdmin: boolean;
+  onNavClick?: () => void;
+}) {
+  return (
+    <>
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+        <Link
+          href="/dashboard"
+          className={navLinkClass(pathname === "/dashboard")}
+          onClick={onNavClick}
+        >
+          <LayoutDashboard className="h-5 w-5 shrink-0" />
+          ダッシュボード
+        </Link>
+        <Link
+          href="/dashboard/history"
+          className={navLinkClass(pathname === "/dashboard/history")}
+          onClick={onNavClick}
+        >
+          <History className="h-5 w-5 shrink-0" />
+          打刻履歴
+        </Link>
+        <Link
+          href="/dashboard/leave"
+          className={navLinkClass(pathname === "/dashboard/leave")}
+          onClick={onNavClick}
+        >
+          <CalendarPlus className="h-5 w-5 shrink-0" />
+          休暇申請
+        </Link>
+        <Link
+          href="/dashboard/settings"
+          className={navLinkClass(pathname === "/dashboard/settings")}
+          onClick={onNavClick}
+        >
+          <Settings className="h-5 w-5 shrink-0" />
+          設定
+        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={navLinkClass(pathname.startsWith("/admin"))}
+            onClick={onNavClick}
+          >
+            <Shield className="h-5 w-5 shrink-0" />
+            管理者
+          </Link>
+        )}
+      </nav>
+      <div className="border-t border-white/10 p-3">
+        <button
+          type="button"
+          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10 touch-manipulation"
+          onClick={() => {
+            onNavClick?.();
+            signOut({ callbackUrl: "/" });
+          }}
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          ログアウト
+        </button>
+      </div>
+    </>
+  );
+}
+
 export function DashboardShell({
   displayName,
   isAdmin,
   children,
 }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLg, setIsLg] = useState(true);
   const pathname = usePathname() ?? "";
 
-  useEffect(() => {
-    const m = window.matchMedia("(min-width: 1024px)");
-    setIsLg(m.matches);
-    const on = () => setIsLg(m.matches);
-    m.addEventListener("change", on);
-    return () => m.removeEventListener("change", on);
-  }, []);
+  const closeMenu = () => setMobileMenuOpen(false);
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
-      {/* モバイル: ドロワー用オーバーレイ（lg未満のみ） */}
-      {mobileMenuOpen && (
-        <button
-          type="button"
-          aria-label="メニューを閉じる"
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* サイドバー: モバイルでは非表示→ハンバーガーでスライドイン、PC(lg〜)で常時表示 */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] border-r border-slate-700/50 bg-[#1E293B] text-white shadow-xl transition-transform duration-200 ease-out lg:static lg:inset-auto lg:z-auto lg:shrink-0 lg:w-56 lg:translate-x-0 lg:max-w-none lg:shadow-none ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
-        aria-hidden={isLg ? false : !mobileMenuOpen}
-      >
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-white/10 px-3 py-4 lg:px-4 lg:py-5">
+      {/* PCのみ: サイドバーの親を hidden lg:flex にし、1024px未満ではレイアウトに含めない */}
+      <div className="hidden lg:flex lg:w-56 lg:shrink-0">
+        <aside
+          className="flex h-full w-full flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
+          aria-label="メインメニュー"
+        >
+          <div className="flex items-center border-b border-white/10 px-4 py-5">
             <div className="min-w-0 flex-1">
-              <h1 className="text-base font-bold tracking-tight truncate lg:text-lg">Habit Logic</h1>
+              <h1 className="text-lg font-bold tracking-tight truncate">Habit Logic</h1>
               <p className="mt-0.5 truncate text-xs text-white/70">{displayName}</p>
             </div>
-            <button
-              type="button"
-              aria-label="メニューを閉じる"
-              className="lg:hidden shrink-0 rounded-lg p-2.5 hover:bg-white/10 touch-manipulation"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <X className="h-5 w-5" />
-            </button>
           </div>
-          <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-            <Link
-              href="/dashboard"
-              className={navLinkClass(pathname === "/dashboard")}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <LayoutDashboard className="h-5 w-5 shrink-0" />
-              ダッシュボード
-            </Link>
-            <Link
-              href="/dashboard/history"
-              className={navLinkClass(pathname === "/dashboard/history")}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <History className="h-5 w-5 shrink-0" />
-              打刻履歴
-            </Link>
-            <Link
-              href="/dashboard/leave"
-              className={navLinkClass(pathname === "/dashboard/leave")}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <CalendarPlus className="h-5 w-5 shrink-0" />
-              休暇申請
-            </Link>
-            <Link
-              href="/dashboard/settings"
-              className={navLinkClass(pathname === "/dashboard/settings")}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <Settings className="h-5 w-5 shrink-0" />
-              設定
-            </Link>
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className={navLinkClass(pathname.startsWith("/admin"))}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Shield className="h-5 w-5 shrink-0" />
-                管理者
-              </Link>
-            )}
-          </nav>
-          <div className="border-t border-white/10 p-3">
-            <button
-              type="button"
-              className="flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10 touch-manipulation"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                signOut({ callbackUrl: "/" });
-              }}
-            >
-              <LogOut className="h-5 w-5 shrink-0" />
-              ログアウト
-            </button>
-          </div>
-        </div>
-      </aside>
+          <SidebarNav pathname={pathname} isAdmin={isAdmin} />
+        </aside>
+      </div>
 
-      {/* メイン: スマホは全幅＋上部ヘッダー＋下ナビ、PC(lg〜)は ml-56 */}
-      <main className="relative min-w-0 min-h-0 flex-1 flex flex-col overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
-        {/* モバイル専用: 画面上部のヘッダー（ハンバーガー＋アプリ名） */}
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-3 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95 lg:hidden">
+      {/* メイン: スマホは padding-left 0、PCはサイドバーが flex で隣にあるのでそのまま */}
+      <main className="relative min-w-0 flex-1 flex flex-col overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        {/* モバイル専用: 上部固定ヘッダー（ハンバーガーのみ） */}
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95 lg:hidden">
           <button
             type="button"
             aria-label="メニューを開く"
@@ -154,13 +144,44 @@ export function DashboardShell({
           </h1>
         </header>
 
-        {/* コンテンツ: PCでは余白なし、モバイルではヘッダー高さ分のみ */}
-        <div className="flex min-w-0 flex-1 flex-col lg:pt-0">
+        <div className="flex min-w-0 flex-1 flex-col">
           {children}
         </div>
       </main>
 
-      {/* スマホ・タブレット: 下部固定ナビ（メニュー枠を取らない） */}
+      {/* モバイルのみ: ドロワー（オーバーレイ＋左からスライド） */}
+      {mobileMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="メニューを閉じる"
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={closeMenu}
+          />
+          <aside
+            className="fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[85vw] flex-col border-r border-slate-700/50 bg-[#1E293B] text-white shadow-xl transition-transform duration-200 ease-out lg:hidden"
+            aria-label="メニュー"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 px-3 py-4">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-bold tracking-tight truncate">Habit Logic</h2>
+                <p className="mt-0.5 truncate text-xs text-white/70">{displayName}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="メニューを閉じる"
+                className="shrink-0 rounded-lg p-2.5 hover:bg-white/10 touch-manipulation"
+                onClick={closeMenu}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <SidebarNav pathname={pathname} isAdmin={isAdmin} onNavClick={closeMenu} />
+          </aside>
+        </>
+      )}
+
+      {/* モバイル: 下部固定ナビ */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-slate-200/80 bg-white/95 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(0,0,0,0.06)] backdrop-blur-sm lg:hidden dark:border-slate-700 dark:bg-[#0f172a]/95"
         aria-label="メインメニュー"

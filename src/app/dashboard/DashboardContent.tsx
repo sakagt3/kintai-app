@@ -138,7 +138,7 @@ function calcActualWorkMinutes(
 }
 
 const CARD_CLASS =
-  "min-w-0 rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]";
+  "min-w-0 w-full rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(30,41,59,0.08)] dark:border-slate-700 dark:bg-slate-900/50 dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]";
 
 function Card({
   title,
@@ -454,7 +454,7 @@ export function DashboardContent() {
   })();
 
   return (
-    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-6 overflow-x-hidden p-4 sm:gap-8 sm:p-6 md:p-8">
+    <div className="flex min-w-0 w-full max-w-full flex-1 flex-col gap-6 overflow-x-hidden px-4 py-4 sm:gap-8 sm:px-6 sm:py-6 md:px-8 md:py-8">
       {/* 今日の日付（西暦） */}
       <p className="text-base font-medium text-slate-600 dark:text-slate-400 sm:text-sm" aria-live="polite">
         {todayLabel}
@@ -466,8 +466,8 @@ export function DashboardContent() {
         </p>
       )}
 
-      {/* ① 勤怠パネル（固定）・モバイルで中央に大きく表示 */}
-      <div className={`${CARD_CLASS} overflow-hidden lg:max-w-full`}>
+      {/* ① 勤怠パネル（固定）・スマホは w-full＋grid-cols-2 でボタン潰れ防止 */}
+      <div className={`${CARD_CLASS} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:py-2.5">
           <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
             打刻
@@ -476,7 +476,7 @@ export function DashboardContent() {
             当月残業（定時17:30〜）{formatDuration(monthlyOvertimeMinutes)}
           </span>
         </div>
-        <div className="mx-auto w-full max-w-lg p-5 sm:p-4">
+        <div className="w-full p-4 sm:p-4">
           {status && (
             <div className="mb-4 flex justify-center sm:mb-3">
               <span
