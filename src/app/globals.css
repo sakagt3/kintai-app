@@ -23,3 +23,17 @@
     --card: 222 47% 11%;
   }
 }
+
+/* モバイル(1024px未満)でサイドバーを物理的に非表示（Safari等でも確実に） */
+@media (max-width: 1023px) {
+  .force-hidden-mobile {
+    display: none !important;
+  }
+}
+@media (min-width: 1024px) {
+  .force-hidden-mobile {
+    display: flex !important;
+    width: 14rem;
+    flex-shrink: 0;
+  }
+}

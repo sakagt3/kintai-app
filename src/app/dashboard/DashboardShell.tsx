@@ -132,26 +132,24 @@ export function DashboardShell({
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
-      {/* PC のみ: 1024px 以上でだけ DOM に出す（Safari 互換のため CSS ではなく JS で制御） */}
-      {isDesktop && (
-        <div className="flex w-56 shrink-0">
-          <aside
-            className="flex h-full w-full flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
-            aria-label="メインメニュー"
-          >
-            <div className="flex items-center border-b border-white/10 px-4 py-5">
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-bold tracking-tight truncate">Habit Logic</h1>
-                <p className="mt-0.5 truncate text-xs text-white/70">{displayName}</p>
-              </div>
+      {/* サイドバー: スマホでは .force-hidden-mobile で display:none !important、PC で表示 */}
+      <div className="force-hidden-mobile flex h-full w-56 shrink-0 flex-col">
+        <aside
+          className="flex h-full w-full flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
+          aria-label="メインメニュー"
+        >
+          <div className="flex items-center border-b border-white/10 px-4 py-5">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-bold tracking-tight truncate">Habit Logic</h1>
+              <p className="mt-0.5 truncate text-xs text-white/70">{displayName}</p>
             </div>
-            <SidebarNav pathname={pathname} isAdmin={isAdmin} />
-          </aside>
-        </div>
-      )}
+          </div>
+          <SidebarNav pathname={pathname} isAdmin={isAdmin} />
+        </aside>
+      </div>
 
-      {/* メイン: スマホは全幅、PCはサイドバー隣 */}
-      <main className={`relative min-w-0 flex-1 flex flex-col overflow-x-hidden ${isDesktop ? "pb-0" : "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"}`}>
+      {/* メイン: スマホは ml-0 で余白なし、PCはサイドバー隣 */}
+      <main className={`relative min-w-0 flex-1 flex flex-col overflow-x-hidden ml-0 ${isDesktop ? "pb-0" : "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"}`}>
         {/* モバイル専用: 上部固定ヘッダー（ハンバーガー）。isDesktop 時は描画しない */}
         {!isDesktop && (
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95">

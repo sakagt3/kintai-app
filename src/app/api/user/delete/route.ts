@@ -23,7 +23,7 @@ export async function DELETE() {
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
     }
 
-    // User 削除前にすべての関連レコードを削除（順序は FK 制約に従う）
+    // User 削除前に Attendance / LoginHistory を必ず deleteMany し、続けて他関連も削除（順序は FK 制約に従う）
     await prisma.$transaction([
       prisma.attendance.deleteMany({ where: { userId } }),
       prisma.loginHistory.deleteMany({ where: { userId } }),
