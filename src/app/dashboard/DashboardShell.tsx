@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -99,38 +99,62 @@ function SidebarNav({
   );
 }
 
+/** 1024px 以上を PC とみなす（Tailwind lg と一致） */
+const DESKTOP_BREAKPOINT_PX = 1024;
+
+/**
+ * モバイルでサイドバーが消えない原因と対策:
+ * - 原因: Safari（特に iOS）で Tailwind の hidden + lg:flex の組み合わせが
+ *   メディアクエリとして正しく解釈されず、サイドバーが表示され続けることがある。
+ *   またキャッシュで古い CSS が効いている可能性もある。
+ * - 対策: CSS のメディアクエリに頼らず、window.matchMedia で 1024px 未満のときは
+ *   PC 用サイドバーを DOM に一切出さない。モバイル用ヘッダー・下ナビ・ドロワーも
+ *   isDesktop が false のときだけ描画する。
+ */
 export function DashboardShell({
   displayName,
   isAdmin,
   children,
 }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname() ?? "";
+
+  useEffect(() => {
+    const m = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT_PX}px)`);
+    const update = () => setIsDesktop(m.matches);
+    update();
+    m.addEventListener("change", update);
+    return () => m.removeEventListener("change", update);
+  }, []);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
-      {/* PCのみ: サイドバーの親を hidden lg:flex にし、1024px未満ではレイアウトに含めない */}
-      <div className="hidden lg:flex lg:w-56 lg:shrink-0">
-        <aside
-          className="flex h-full w-full flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
-          aria-label="メインメニュー"
-        >
-          <div className="flex items-center border-b border-white/10 px-4 py-5">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold tracking-tight truncate">Habit Logic</h1>
-              <p className="mt-0.5 truncate text-xs text-white/70">{displayName}</p>
+      {/* PC のみ: 1024px 以上でだけ DOM に出す（Safari 互換のため CSS ではなく JS で制御） */}
+      {isDesktop && (
+        <div className="flex w-56 shrink-0">
+          <aside
+            className="flex h-full w-full flex-col border-r border-slate-700/50 bg-[#1E293B] text-white"
+            aria-label="メインメニュー"
+          >
+            <div className="flex items-center border-b border-white/10 px-4 py-5">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-bold tracking-tight truncate">Habit Logic</h1>
+                <p className="mt-0.5 truncate text-xs text-white/70">{displayName}</p>
+              </div>
             </div>
-          </div>
-          <SidebarNav pathname={pathname} isAdmin={isAdmin} />
-        </aside>
-      </div>
+            <SidebarNav pathname={pathname} isAdmin={isAdmin} />
+          </aside>
+        </div>
+      )}
 
-      {/* メイン: スマホは padding-left 0、PCはサイドバーが flex で隣にあるのでそのまま */}
-      <main className="relative min-w-0 flex-1 flex flex-col overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
-        {/* モバイル専用: 上部固定ヘッダー（ハンバーガーのみ） */}
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95 lg:hidden">
+      {/* メイン: スマホは全幅、PCはサイドバー隣 */}
+      <main className={`relative min-w-0 flex-1 flex flex-col overflow-x-hidden ${isDesktop ? "pb-0" : "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"}`}>
+        {/* モバイル専用: 上部固定ヘッダー（ハンバーガー）。isDesktop 時は描画しない */}
+        {!isDesktop && (
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95">
           <button
             type="button"
             aria-label="メニューを開く"
@@ -143,23 +167,24 @@ export function DashboardShell({
             Habit Logic
           </h1>
         </header>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col">
           {children}
         </div>
       </main>
 
-      {/* モバイルのみ: ドロワー（オーバーレイ＋左からスライド） */}
-      {mobileMenuOpen && (
+      {/* モバイルのみ: ドロワー（オーバーレイ＋左からスライド）。isDesktop のときは出さない */}
+      {!isDesktop && mobileMenuOpen && (
         <>
           <button
             type="button"
             aria-label="メニューを閉じる"
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/50"
             onClick={closeMenu}
           />
           <aside
-            className="fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[85vw] flex-col border-r border-slate-700/50 bg-[#1E293B] text-white shadow-xl transition-transform duration-200 ease-out lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[85vw] flex-col border-r border-slate-700/50 bg-[#1E293B] text-white shadow-xl transition-transform duration-200 ease-out"
             aria-label="メニュー"
           >
             <div className="flex items-center justify-between border-b border-white/10 px-3 py-4">
@@ -181,9 +206,10 @@ export function DashboardShell({
         </>
       )}
 
-      {/* モバイル: 下部固定ナビ */}
+      {/* モバイル: 下部固定ナビ。isDesktop のときは描画しない */}
+      {!isDesktop && (
       <nav
-        className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-slate-200/80 bg-white/95 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(0,0,0,0.06)] backdrop-blur-sm lg:hidden dark:border-slate-700 dark:bg-[#0f172a]/95"
+        className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-slate-200/80 bg-white/95 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(0,0,0,0.06)] backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95"
         aria-label="メインメニュー"
       >
         <Link
@@ -244,6 +270,7 @@ export function DashboardShell({
           </Link>
         )}
       </nav>
+      )}
     </div>
   );
 }
