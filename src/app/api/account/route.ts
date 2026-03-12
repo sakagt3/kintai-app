@@ -1,5 +1,6 @@
 /**
- * 自分自身のアカウントを削除する。削除履歴は可能なら記録（テーブルが無くても削除は成功させる）。
+ * 自分自身のアカウントを削除する。User 削除前に Attendance / LoginHistory 等を
+ * deleteMany で一括削除。削除履歴は可能なら記録（テーブルが無くても削除は成功させる）。
  */
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -22,11 +23,11 @@ export async function DELETE() {
     }
 
     await prisma.$transaction([
+      prisma.attendance.deleteMany({ where: { userId } }),
       prisma.loginHistory.deleteMany({ where: { userId } }),
       prisma.learningHistory.deleteMany({ where: { userId } }),
       prisma.activityLog.deleteMany({ where: { userId } }),
       prisma.quizAttempt.deleteMany({ where: { userId } }),
-      prisma.attendance.deleteMany({ where: { userId } }),
       prisma.leaveRequest.deleteMany({ where: { userId } }),
       prisma.userSettings.deleteMany({ where: { userId } }),
       prisma.user.delete({ where: { id: userId } }),

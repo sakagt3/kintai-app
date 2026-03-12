@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -32,7 +32,16 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLg, setIsLg] = useState(true);
   const pathname = usePathname() ?? "";
+
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 1024px)");
+    setIsLg(m.matches);
+    const on = () => setIsLg(m.matches);
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
@@ -46,11 +55,12 @@ export function DashboardShell({
         />
       )}
 
-      {/* サイドバー: スマホ・タブレットでは折りたたみドロワー（狭め）、PC(lg〜)で常時表示 */}
+      {/* サイドバー: モバイルでは非表示→ハンバーガーでスライドイン、PC(lg〜)で常時表示 */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[260px] max-w-[78vw] border-r border-slate-700/50 bg-[#1E293B] text-white shadow-xl transition-transform duration-200 ease-out lg:translate-x-0 lg:w-56 lg:max-w-none lg:shadow-none ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] border-r border-slate-700/50 bg-[#1E293B] text-white shadow-xl transition-transform duration-200 ease-out lg:static lg:inset-auto lg:z-auto lg:shrink-0 lg:w-56 lg:translate-x-0 lg:max-w-none lg:shadow-none ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
+        aria-hidden={isLg ? false : !mobileMenuOpen}
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-white/10 px-3 py-4 lg:px-4 lg:py-5">
@@ -127,20 +137,25 @@ export function DashboardShell({
         </div>
       </aside>
 
-      {/* メイン: スマホは全幅＋下ナビ、PC(lg〜)は ml-56 */}
-      <main className="relative min-w-0 w-full flex-1 flex flex-col overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:ml-56 lg:pb-0">
-        {/* スマホ・タブレット: 左上のメニューボタン（コンパクト） */}
-        <button
-          type="button"
-          aria-label="メニューを開く"
-          className="fixed top-3 left-3 z-30 flex h-10 w-10 items-center justify-center rounded-xl bg-[#1E293B] text-white shadow-lg touch-manipulation lg:hidden"
-          onClick={() => setMobileMenuOpen(true)}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      {/* メイン: スマホは全幅＋上部ヘッダー＋下ナビ、PC(lg〜)は ml-56 */}
+      <main className="relative min-w-0 min-h-0 flex-1 flex flex-col overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        {/* モバイル専用: 画面上部のヘッダー（ハンバーガー＋アプリ名） */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/95 px-3 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-[#0f172a]/95 lg:hidden">
+          <button
+            type="button"
+            aria-label="メニューを開く"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1E293B] text-white touch-manipulation hover:bg-[#334155]"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <h1 className="min-w-0 truncate text-base font-bold tracking-tight text-[#1E293B] dark:text-white">
+            Habit Logic
+          </h1>
+        </header>
 
-        {/* コンテンツ: スマホでメニューボタンと下ナビの余白を確保 */}
-        <div className="flex min-w-0 flex-1 flex-col pt-12 lg:pt-0">
+        {/* コンテンツ: PCでは余白なし、モバイルではヘッダー高さ分のみ */}
+        <div className="flex min-w-0 flex-1 flex-col lg:pt-0">
           {children}
         </div>
       </main>

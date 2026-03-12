@@ -35,11 +35,11 @@ export async function DELETE(
 
     const adminId = session.user.id;
     await prisma.$transaction([
+      prisma.attendance.deleteMany({ where: { userId } }),
       prisma.loginHistory.deleteMany({ where: { userId } }),
       prisma.learningHistory.deleteMany({ where: { userId } }),
       prisma.activityLog.deleteMany({ where: { userId } }),
       prisma.quizAttempt.deleteMany({ where: { userId } }),
-      prisma.attendance.deleteMany({ where: { userId } }),
       prisma.leaveRequest.deleteMany({ where: { userId } }),
       prisma.userSettings.deleteMany({ where: { userId } }),
       prisma.user.delete({ where: { id: userId } }),

@@ -18,6 +18,8 @@ export type NewsItem = {
   id: string;
   title: string;
   description: string;
+  /** 概要（冒頭100文字程度・表示用） */
+  summary: string;
   source: string;
   url: string;
   publishedAt?: string;
@@ -35,6 +37,12 @@ function toShortSummary(raw: string, maxLines = 3, maxLen = 300): string {
   return joined + (joined.length >= maxLen ? "…" : "");
 }
 
+/** 概要表示用（法的配慮：冒頭100文字程度） */
+function toSummaryAbout100(raw: string): string {
+  const text = stripCdata(raw).trim().replace(/\s+/g, " ");
+  return text.slice(0, 100) + (text.length > 100 ? "…" : "");
+}
+
 async function fetchNewsFromUrl(
   url: string,
   sourceName: string
@@ -47,10 +55,12 @@ async function fetchNewsFromUrl(
     item.contentSnippet ?? item.content ?? item.description ?? "";
   const description =
     toShortSummary(rawDesc) || "詳細はリンク先をご覧ください。";
+  const summary = toSummaryAbout100(rawDesc) || description.slice(0, 100) || "詳細はリンク先をご覧ください。";
   return {
     id: item.guid ?? item.link,
     title,
     description,
+    summary,
     source: sourceName,
     url: item.link,
     publishedAt: item.pubDate ?? undefined,

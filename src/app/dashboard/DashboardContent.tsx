@@ -466,8 +466,8 @@ export function DashboardContent() {
         </p>
       )}
 
-      {/* ① 勤怠パネル（固定）・当月残業表示 */}
-      <div className={`${CARD_CLASS} overflow-hidden`}>
+      {/* ① 勤怠パネル（固定）・モバイルで中央に大きく表示 */}
+      <div className={`${CARD_CLASS} overflow-hidden lg:max-w-full`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700 sm:py-2.5">
           <h2 className="text-base font-semibold text-[#1E293B] dark:text-slate-200 sm:text-sm">
             打刻
@@ -476,7 +476,7 @@ export function DashboardContent() {
             当月残業（定時17:30〜）{formatDuration(monthlyOvertimeMinutes)}
           </span>
         </div>
-        <div className="p-4 sm:p-4">
+        <div className="mx-auto w-full max-w-lg p-5 sm:p-4">
           {status && (
             <div className="mb-4 flex justify-center sm:mb-3">
               <span
