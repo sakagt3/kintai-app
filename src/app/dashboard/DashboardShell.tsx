@@ -101,7 +101,7 @@ function Sidebar({
 
 export function DashboardShell({ displayName, isAdmin, children }: DashboardShellProps) {
   const pathname = usePathname() ?? "";
-  const [isMobile, setIsMobile] = useState(true);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -111,6 +111,7 @@ export function DashboardShell({ displayName, isAdmin, children }: DashboardShel
     q.addEventListener("change", update);
     return () => q.removeEventListener("change", update);
   }, []);
+  if (isMobile === null) return null;
 
   if (isMobile) {
     return (
