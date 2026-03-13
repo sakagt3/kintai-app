@@ -216,12 +216,12 @@ export function DashboardShell({ displayName, isAdmin, children }: DashboardShel
 
   return (
     <div className="flex min-h-screen min-h-dvh bg-slate-100 dark:bg-[#0f172a]">
-      <div className="fixed inset-y-0 left-0 z-10 w-64">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-10 lg:flex lg:w-64">
         <Sidebar displayName={displayName} pathname={pathname} isAdmin={isAdmin} />
       </div>
       <main
         data-dashboard-main
-        className="relative min-w-0 flex-1 flex flex-col overflow-x-hidden ml-64 pb-0"
+        className="relative min-w-0 flex-1 flex flex-col overflow-x-hidden ml-0 lg:ml-64 pb-0"
       >
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </main>
