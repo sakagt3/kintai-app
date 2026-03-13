@@ -18,14 +18,15 @@ const LEVEL_GUIDE: Record<string, string> = {
   pro: "プロ向け：業界標準用語で簡潔に。",
 };
 
-/** 自由記述から「〇問」を抽出。5〜10の範囲で返す。 */
+/** 優先度1: ユーザーが「〇問」と指定していればその数。優先度2: 指定がなければ規定値10。1〜20の範囲。 */
+const DEFAULT_QUESTION_COUNT = 10;
 function parseSampleCount(goal: string): number {
   const match = goal.match(/(\d+)\s*問/);
   if (match) {
     const n = parseInt(match[1], 10);
-    if (Number.isFinite(n) && n >= 1) return Math.min(10, Math.max(5, n));
+    if (Number.isFinite(n) && n >= 1) return Math.min(20, Math.max(1, n));
   }
-  return 5;
+  return DEFAULT_QUESTION_COUNT;
 }
 
 function buildPrompt(goal: string, level: string, sampleCount: number): string {

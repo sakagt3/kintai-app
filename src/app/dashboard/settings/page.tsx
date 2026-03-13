@@ -12,7 +12,6 @@ import { Settings, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { TOPICS } from "@/lib/topics";
 import { PlanPreview } from "./PlanPreview";
-import { QuickDiagnosis } from "./QuickDiagnosis";
 
 type DisplayMode = "standard" | "detail_special" | "detail_news";
 type DisplayVolume = "simple" | "detailed";
@@ -50,13 +49,12 @@ export default function SettingsPage() {
     preferredTopicIds: [],
     customLearningGoal: "",
     customQuizName: "",
-    dailyQuizCount: 5,
+    dailyQuizCount: 10,
     learningLevel: "intermediate",
     appliedPlanSummary: "",
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
-  const [diagnosisPreviewText, setDiagnosisPreviewText] = useState("");
-  const [showQuickDiagnosis, setShowQuickDiagnosis] = useState(false);
+  const [planPreviewText, setPlanPreviewText] = useState("");
   const [masterPlanLoading, setMasterPlanLoading] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const router = useRouter();
@@ -83,7 +81,7 @@ export default function SettingsPage() {
             dailyQuizCount:
               typeof s.dailyQuizCount === "number"
                 ? Math.min(20, Math.max(1, s.dailyQuizCount))
-                : 5,
+                : 10,
             learningLevel:
               ["beginner", "intermediate", "advanced", "pro"].includes(s.learningLevel ?? "")
                 ? (s.learningLevel ?? "intermediate")
@@ -204,7 +202,7 @@ export default function SettingsPage() {
 
   const handlePlanCreate = async () => {
     setMasterPlanLoading(true);
-    setDiagnosisPreviewText("");
+    setPlanPreviewText("");
     try {
       const res = await fetch("/api/ai/plan-create", {
         method: "POST",
@@ -217,7 +215,7 @@ export default function SettingsPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "生成に失敗しました");
       const planText = data?.planText ?? "";
-      setDiagnosisPreviewText(planText);
+      setPlanPreviewText(planText);
       toast.success("プランを作成しました。下の「このプランを適用して開始する」で確定できます。");
     } catch {
       toast.error("プランの生成に失敗しました。");
@@ -248,22 +246,6 @@ export default function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "アカウントの削除に失敗しました");
       setDeletingAccount(false);
     }
-  };
-
-  const handleDiagnosisResult = (
-    level: "beginner" | "intermediate" | "advanced" | "pro",
-    message: string
-  ) => {
-    setSettings((s) => ({ ...s, learningLevel: level }));
-    setDiagnosisPreviewText(message);
-    fetch("/api/learning-history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        kind: "diagnosis",
-        payload: { level, message },
-      }),
-    }).catch(() => {});
   };
 
   if (loading) {
@@ -515,13 +497,6 @@ export default function SettingsPage() {
               >
                 {masterPlanLoading ? "生成中…" : "この内容でプラン作成"}
               </button>
-              <button
-                type="button"
-                onClick={() => setShowQuickDiagnosis(true)}
-                className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
-              >
-                AIにレベルを判定してもらう
-              </button>
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500">
@@ -529,22 +504,13 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {showQuickDiagnosis && (
-          <div className="mt-4">
-            <QuickDiagnosis
-              triggerLabel="AIにレベルを判定してもらう"
-              onResult={handleDiagnosisResult}
-            />
-          </div>
-        )}
-
         {/* インタラクティブ・プランプレビュー */}
         <div className="mt-4">
           <PlanPreview
             goal={settings.customLearningGoal}
             level={settings.learningLevel}
             appliedPlanSummary={settings.appliedPlanSummary}
-            previewOverrideText={diagnosisPreviewText}
+            previewOverrideText={planPreviewText}
             planLoading={masterPlanLoading}
             onApply={handleApply}
           />
@@ -557,7 +523,7 @@ export default function SettingsPage() {
           1日の標準問題数
         </h2>
         <p className="mb-3 text-xs text-gray-500">
-          選択式または生成AIで問題数を指定しない場合に適用されます（デフォルト5問）。
+          選択式または生成AIで問題数を指定しない場合に適用されます（デフォルト10問）。
         </p>
         <select
           value={settings.dailyQuizCount}

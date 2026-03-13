@@ -22,7 +22,7 @@ export async function GET() {
     where: { userId },
   });
   const limit = Math.min(
-    Math.max(settings?.dailyQuizCount ?? 5, 1),
+    Math.max(settings?.dailyQuizCount ?? 10, 1),
     20,
   );
 

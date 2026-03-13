@@ -68,7 +68,7 @@ export async function GET() {
     settings?.learningLevel && ["beginner", "intermediate", "advanced", "pro"].includes(settings.learningLevel)
       ? settings.learningLevel
       : "intermediate";
-  const dailyCount = Math.min(10, Math.max(1, settings?.dailyQuizCount ?? 5));
+  const dailyCount = Math.min(20, Math.max(1, settings?.dailyQuizCount ?? 10));
 
   const questions: QuizItem[] = [];
 
@@ -123,12 +123,12 @@ export async function GET() {
   if (!effectivePlan) effectivePlan = "ビジネス教養";
 
   if (needNew > 0) {
-    const prompt = `あなたは学習アシスタントです。以下の指針に基づき、${needNew}問の4択クイズを生成してください。
+    const prompt = `あなたは学習アシスタントです。以下の指針に基づき、必ず${needNew}問の4択クイズを生成してください。指定された数に達するまで省略せず、${needNew}問すべて出力すること。
 【本日の日付】${today}（日付が変わるごとに異なる問題になるよう、今日の日付を踏まえた多様な出題にすること）
 【指針】${effectivePlan}
 【レベル】${levelGuide}
-【ルール】最新のトレンドを1問以上含める。過去の典型的な出題と被りすぎないよう、角度を変えた問題にすること。毎日違う問題になるよう多様なトピックから選ぶこと。
-【出力】JSON配列のみ。説明は不要。形式: [{"question":"問題文","options":["Aの選択肢","B","C","D"],"correctIndex":0,"explanation":"解説"}] correctIndexは0〜3の整数。optionsは必ず4つ。`;
+【ルール】最新のトレンドを1問以上含める。過去の典型的な出題と被りすぎないよう、角度を変えた問題にすること。毎日違う問題になるよう多様なトピックから選ぶこと。2問だけ出す・一部を省略するは禁止。必ず${needNew}問分の要素を配列で出力すること。
+【出力】JSON配列のみ。説明は不要。形式: [{"question":"問題文","options":["Aの選択肢","B","C","D"],"correctIndex":0,"explanation":"解説"},...] correctIndexは0〜3の整数。optionsは必ず4つ。要素数は必ず${needNew}個。`;
 
     try {
       if (process.env.OPENAI_API_KEY) {
@@ -160,7 +160,7 @@ export async function GET() {
           }
         }
       } else {
-        const mockQuestions: QuizItem[] = [
+        const mockTemplates: QuizItem[] = [
           {
             id: "new-1",
             question: "RAGの「R」は何の略ですか？",
@@ -177,9 +177,34 @@ export async function GET() {
             explanation: "事実に基づかない内容をそれらしく生成する現象です。",
             isReview: false,
           },
+          {
+            id: "new-3",
+            question: "機械学習の「教師あり学習」とは？",
+            options: ["正解付きデータで学習する方式", "ラベルなしデータのみで学習", "強化学習の別名", "推論のみ行う方式"],
+            correctIndex: 0,
+            explanation: "正解（ラベル）付きデータでモデルを学習させる方式です。",
+            isReview: false,
+          },
+          {
+            id: "new-4",
+            question: "APIの「REST」の特徴として適切なのは？",
+            options: ["リソースをURLで表現しHTTPメソッドで操作", "必ずXMLで通信する", "状態をサーバーが保持する", "TCPのみで動作する"],
+            correctIndex: 0,
+            explanation: "RESTはリソースをURLで表現し、GET/POST等のHTTPメソッドで操作するアーキテクチャです。",
+            isReview: false,
+          },
+          {
+            id: "new-5",
+            question: "「マイクロサービス」の利点は？",
+            options: ["サービスごとに独立してスケール・デプロイできる", "必ず1台のサーバーで動作する", "モノリスより常に遅い", "言語を1つに統一しなければならない"],
+            correctIndex: 0,
+            explanation: "サービスを小さく分離することで、独立したスケール・デプロイが可能になります。",
+            isReview: false,
+          },
         ];
-        for (let i = 0; i < Math.min(needNew, mockQuestions.length); i++) {
-          questions.push({ ...mockQuestions[i], id: `new-${Date.now()}-${i}` });
+        for (let i = 0; i < needNew; i++) {
+          const t = mockTemplates[i % mockTemplates.length];
+          questions.push({ ...t, id: `new-${Date.now()}-${i}` });
         }
       }
     } catch (e) {
