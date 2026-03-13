@@ -26,60 +26,74 @@ export function TodayAiContent() {
   const [showResult, setShowResult] = useState(false);
   const [results, setResults] = useState<boolean[]>([]);
   const [sending, setSending] = useState(false);
+  const [extraBatch, setExtraBatch] = useState(0);
 
-  const fetchQuestions = useCallback(() => {
-    setLoading(true);
-    fetch("/api/ai/today-questions")
-      .then((res) => res.json().catch(() => ({})))
-      .then((data) => {
-        const raw = Array.isArray(data.questions) ? data.questions : [];
-        const valid = raw
-          .filter((q: unknown) => {
-            if (!q || typeof q !== "object") return false;
-            const o = q as { question?: unknown; options?: unknown };
-            return (
-              typeof o.question === "string" &&
-              Array.isArray(o.options) &&
-              o.options.length >= 4
-            );
-          })
-          .map((q: unknown) => {
-            const x = q as {
-              id?: string;
-              question: string;
-              options: string[];
-              correctIndex?: number;
-              explanation?: string;
-              isReview?: boolean;
-            };
-            const opts = Array.isArray(x.options) ? x.options : [];
-            return {
-              id:
-                typeof x.id === "string"
-                  ? x.id
-                  : `q-${Math.random().toString(36).slice(2, 9)}`,
-              question: String(x.question ?? ""),
-              options: opts.length <= 5 ? opts : opts.slice(0, 5),
-              correctIndex: Math.min(
-                3,
-                Math.max(0, Number(x.correctIndex) ?? 0)
-              ),
-              explanation: String(x.explanation ?? ""),
-              isReview: Boolean(x.isReview),
-            };
-          });
-        setQuestions(valid);
-        setRetentionRate(
-          typeof data.retentionRate === "number" ? data.retentionRate : null
-        );
-        setIndex(0);
-        setSelectedIndex(null);
-        setShowResult(false);
-        setResults([]);
-      })
-      .catch(() => setQuestions([]))
-      .finally(() => setLoading(false));
-  }, []);
+  const fetchQuestions = useCallback(
+    (isMore = false, appendAfterIndex = 0) => {
+      setLoading(true);
+      const url = isMore
+        ? `/api/ai/today-questions?more=1&batch=${extraBatch + 1}`
+        : "/api/ai/today-questions";
+      fetch(url)
+        .then((res) => res.json().catch(() => ({})))
+        .then((data) => {
+          const raw = Array.isArray(data.questions) ? data.questions : [];
+          const valid = raw
+            .filter((q: unknown) => {
+              if (!q || typeof q !== "object") return false;
+              const o = q as { question?: unknown; options?: unknown };
+              return (
+                typeof o.question === "string" &&
+                Array.isArray(o.options) &&
+                o.options.length >= 4
+              );
+            })
+            .map((q: unknown) => {
+              const x = q as {
+                id?: string;
+                question: string;
+                options: string[];
+                correctIndex?: number;
+                explanation?: string;
+                isReview?: boolean;
+              };
+              const opts = Array.isArray(x.options) ? x.options : [];
+              return {
+                id:
+                  typeof x.id === "string"
+                    ? x.id
+                    : `q-${Math.random().toString(36).slice(2, 9)}`,
+                question: String(x.question ?? ""),
+                options: opts.length <= 5 ? opts : opts.slice(0, 5),
+                correctIndex: Math.min(
+                  3,
+                  Math.max(0, Number(x.correctIndex) ?? 0)
+                ),
+                explanation: String(x.explanation ?? ""),
+                isReview: Boolean(x.isReview),
+              };
+            });
+          if (isMore) {
+            setQuestions((prev) => [...prev, ...valid]);
+            setIndex(appendAfterIndex);
+            setExtraBatch((b) => b + 1);
+          } else {
+            setQuestions(valid);
+            setIndex(0);
+            setResults([]);
+            setExtraBatch(0);
+          }
+          setRetentionRate(
+            typeof data.retentionRate === "number" ? data.retentionRate : null
+          );
+          setSelectedIndex(null);
+          setShowResult(false);
+        })
+        .catch(() => (!isMore && setQuestions([])))
+        .finally(() => setLoading(false));
+    },
+    [extraBatch]
+  );
 
   useEffect(() => {
     fetchQuestions();
@@ -189,6 +203,26 @@ export function TodayAiContent() {
             記憶定着度（直近）：{retentionRate !== null ? `${retentionRate}%` : "—"}
           </p>
         )}
+        <div className="flex flex-col items-center gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => fetchQuestions(true, questions.length)}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#1E293B]/40 bg-white px-4 py-3 text-sm font-medium text-[#1E293B] hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                まだ学習を続けますか？（追加問題を表示）
+              </>
+            )}
+          </button>
+        </div>
+        <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
+          ※本プログラムはエビングハウスの忘却曲線に基づき、最適なタイミングで復習を促すよう設計されています。
+        </p>
       </div>
     );
   }
@@ -296,7 +330,7 @@ export function TodayAiContent() {
       )}
 
       <p className="text-[11px] text-slate-400 dark:text-slate-500">
-        ※忘却曲線に基づき、最適なタイミングで復習を出題しています。
+        ※本プログラムはエビングハウスの忘却曲線に基づき、最適なタイミングで復習を促すよう設計されています。
       </p>
     </div>
   );

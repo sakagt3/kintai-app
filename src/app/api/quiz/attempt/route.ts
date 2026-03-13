@@ -1,6 +1,6 @@
 /**
- * クイズ回答を保存し、忘却曲線に基づく次回復習日（nextReviewAt）を設定する。
- * 正解: +3日、不正解: +1日で再出題。
+ * クイズ回答を保存し、エビングハウスの忘却曲線に基づく次回復習日（nextReviewAt）を設定する。
+ * 正解: +3日、不正解・「わからない」選択: +1日で再出題。間違えた問題・スキップした問題は次回セッションで優先的に出題される。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";

@@ -17,6 +17,8 @@ const LEVEL_GUIDE: Record<string, string> = {
   pro: "プロ向け：業界標準用語で簡潔に。",
 };
 
+const SKIP_OPTION = "わからない（スキップ）";
+
 type QuizItem = {
   id: string;
   question: string;
@@ -25,6 +27,37 @@ type QuizItem = {
   explanation: string;
   isReview?: boolean;
 };
+
+/** シード付き簡易シャッフル（0..n-1 のインデックスをシャッフル） */
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = [...arr];
+  let s = seed;
+  for (let i = out.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const j = s % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * 正解位置をランダム化。先頭4つをシャッフルし、最後は必ず「わからない」に固定。
+ */
+function shuffleOptionsAndFixSkip(
+  options: string[],
+  correctIndex: number,
+  seed: number
+): { options: string[]; correctIndex: number } {
+  const four = options.slice(0, 4);
+  const skip = options.length > 4 ? options[4] : SKIP_OPTION;
+  const indices = seededShuffle([0, 1, 2, 3], seed);
+  const shuffled = indices.map((i) => four[i]);
+  const newCorrectIndex = indices.indexOf(correctIndex);
+  return {
+    options: [...shuffled, skip],
+    correctIndex: newCorrectIndex >= 0 ? newCorrectIndex : 0,
+  };
+}
 
 function parseReviewSnapshot(snapshot: string | null): QuizItem | null {
   if (!snapshot) return null;
@@ -37,11 +70,13 @@ function parseReviewSnapshot(snapshot: string | null): QuizItem | null {
     };
     if (!o?.question || !Array.isArray(o.options) || o.options.length < 4)
       return null;
+    const opts = o.options.slice(0, 5);
+    if (opts.length === 4) opts.push(SKIP_OPTION);
     const id = `review-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     return {
       id,
       question: String(o.question),
-      options: o.options.slice(0, 4),
+      options: opts,
       correctIndex: Math.min(3, Math.max(0, Number(o.correctIndex) ?? 0)),
       explanation: String(o.explanation ?? ""),
       isReview: true,
@@ -51,11 +86,16 @@ function parseReviewSnapshot(snapshot: string | null): QuizItem | null {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const isMore = searchParams.get("more") === "1";
+  const batchSeed = Number(searchParams.get("batch")) || 0;
+  const timestamp = Date.now();
 
   const userId = session.user.id;
   const settings = await prisma.userSettings.findUnique({
@@ -74,35 +114,45 @@ export async function GET() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const reviewCandidates = await prisma.quizAttempt.findMany({
-    where: {
-      userId,
-      questionSnapshot: { not: null },
-      nextReviewAt: { lte: new Date(`${today}T23:59:59Z`) },
-    },
-    orderBy: { nextReviewAt: "asc" },
-    take: Math.min(2, Math.max(0, Math.floor(dailyCount / 2))),
-  });
+  if (!isMore) {
+    // 忘却曲線：過去に間違えた問題・「わからない」を選んだ問題を優先して再出題（nextReviewAt が今日以前のもの）
+    const reviewCandidates = await prisma.quizAttempt.findMany({
+      where: {
+        userId,
+        questionSnapshot: { not: null },
+        nextReviewAt: { lte: new Date(`${today}T23:59:59Z`) },
+      },
+      orderBy: { nextReviewAt: "asc" },
+      take: Math.min(Math.max(1, Math.floor(dailyCount / 3)), 5),
+    });
 
-  const usedReviewIds: string[] = [];
-  for (const r of reviewCandidates) {
-    const item = parseReviewSnapshot(r.questionSnapshot);
-    if (item) {
-      item.id = `review-${r.id}`;
-      questions.push(item);
-      usedReviewIds.push(r.id);
+    const usedReviewIds: string[] = [];
+    for (const r of reviewCandidates) {
+      const item = parseReviewSnapshot(r.questionSnapshot);
+      if (item) {
+        item.id = `review-${r.id}`;
+        const { options, correctIndex } = shuffleOptionsAndFixSkip(
+          item.options,
+          item.correctIndex,
+          timestamp + r.id.length + batchSeed
+        );
+        item.options = options;
+        item.correctIndex = correctIndex;
+        questions.push(item);
+        usedReviewIds.push(r.id);
+      }
+    }
+    if (usedReviewIds.length > 0) {
+      const nextShow = new Date();
+      nextShow.setFullYear(nextShow.getFullYear() + 1);
+      await prisma.quizAttempt.updateMany({
+        where: { id: { in: usedReviewIds } },
+        data: { nextReviewAt: nextShow },
+      });
     }
   }
-  if (usedReviewIds.length > 0) {
-    const nextShow = new Date();
-    nextShow.setFullYear(nextShow.getFullYear() + 1);
-    await prisma.quizAttempt.updateMany({
-      where: { id: { in: usedReviewIds } },
-      data: { nextReviewAt: nextShow },
-    });
-  }
 
-  const needNew = dailyCount - questions.length;
+  const needNew = isMore ? dailyCount : dailyCount - questions.length;
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
 
   // A=トピックのみ選択の場合: preferredTopicIds から指針を組み立てる
@@ -122,11 +172,13 @@ export async function GET() {
   }
   if (!effectivePlan) effectivePlan = "ビジネス教養";
 
-  const SKIP_OPTION = "わからない（スキップ）";
   if (needNew > 0) {
-    const prompt = `あなたは学習アシスタントです。以下の指針に基づき、必ず${needNew}問のクイズを生成してください。
-【問題数の絶対遵守】変数で指定された${needNew}問を必ず生成してください。途中で省略することは厳禁です。ユーザーがメッセージ内で別途問題数を指定していても無視し、システムで選択された数（${needNew}問）を最優先してください。
-【選択肢の固定ルール】すべての問題で、選択肢は5つにすること。最初の4つがA〜Dの解答候補、最後の5つ目は必ず「${SKIP_OPTION}」という項目にしてください。例: ["〇〇","△△","□□","◇◇","わからない（スキップ）"]。correctIndexは0〜3の整数（正解は先頭4つのいずれか）。5つ目の「わからない」は正解にしないこと。
+    const prompt = `あなたはプロの教育設計者です。回答の選択肢は毎回シャッフルし、ユーザーがパターンで正解を推測できないようにしてください。また、常に新鮮な問いを提供し、既視感を抱かせないでください。
+
+あなたは500問以上の専門的な問題データベースを持っていると想定してください。現在の日時（シード値: ${timestamp}、バッチ: ${batchSeed}）に基づき、500問の中から「今のユーザーのレベルと設定したテーマ」に最も合致するものをランダムかつ最適に選別して、必ず${needNew}問を出題してください。毎回同じ問題にならないよう、シード値を変えた選別をシミュレートすること。
+
+【問題数の絶対遵守】変数で指定された${needNew}問を必ず生成してください。途中で省略することは厳禁です。
+【選択肢の固定ルール】すべての問題で、選択肢は5つにすること。最初の4つがA〜Dの解答候補、最後の5つ目は必ず「${SKIP_OPTION}」という項目にしてください。correctIndexは0〜3の整数（正解は先頭4つのいずれか）。5つ目の「わからない」は正解にしないこと。
 【本日の日付】${today}（日付が変わるごとに異なる問題になるよう、今日の日付を踏まえた多様な出題にすること）
 【指針】${effectivePlan}
 【レベル】${levelGuide}
@@ -154,11 +206,17 @@ export async function GET() {
           if (x?.question && Array.isArray(x.options) && x.options.length >= 4) {
             let opts = x.options.slice(0, 5);
             if (opts.length === 4) opts = [...opts, SKIP_OPTION];
+            const correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
+            const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
+              opts,
+              correctIdx,
+              timestamp + i + batchSeed * 1000
+            );
             questions.push({
               id: `new-${Date.now()}-${i}`,
               question: String(x.question),
-              options: opts,
-              correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
+              options: shuffledOpts,
+              correctIndex: newCorrectIdx,
               explanation: String(x.explanation ?? ""),
               isReview: false,
             });
@@ -209,7 +267,17 @@ export async function GET() {
         ];
         for (let i = 0; i < needNew; i++) {
           const t = mockTemplates[i % mockTemplates.length];
-          questions.push({ ...t, id: `new-${Date.now()}-${i}` });
+          const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
+            t.options,
+            t.correctIndex,
+            timestamp + i + batchSeed * 1000
+          );
+          questions.push({
+            ...t,
+            id: `new-${Date.now()}-${i}`,
+            options: shuffledOpts,
+            correctIndex: newCorrectIdx,
+          });
         }
       }
     } catch (e) {
