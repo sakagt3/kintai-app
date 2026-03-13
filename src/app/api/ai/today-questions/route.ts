@@ -163,10 +163,46 @@ export async function GET(request: Request) {
     }
   }
 
-  const needNew = isMore ? dailyCount : dailyCount - questions.length;
+  let needNew = isMore ? dailyCount : dailyCount - questions.length;
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
 
-  // A=トピックのみ選択の場合: preferredTopicIds から指針を組み立てる
+  // 問題バンクがあればここからランダム抽出（毎回固定にならない）
+  if (needNew > 0) {
+    const bank = await prisma.questionBank.findUnique({
+      where: { userId },
+    });
+    const bankList = Array.isArray(bank?.questions) ? (bank.questions as QuizItem[]) : [];
+    const pool = bankList.filter(
+      (q) => q && typeof q.id === "string" && !excludeIds.includes(q.id)
+    );
+    if (pool.length >= needNew) {
+      const shuffled = seededShuffle(pool, timestamp + batchSeed * 1000);
+      for (let i = 0; i < needNew; i++) {
+        const x = shuffled[i];
+        let opts: string[] = Array.isArray(x.options) ? [...x.options].slice(0, 5) : [];
+        if (opts.length < 4) opts = [...opts, "A", "B", "C", "D"].slice(0, 4);
+        if (opts.length === 4) opts = [...opts, SKIP_OPTION];
+        else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
+        const correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
+        const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
+          opts,
+          correctIdx,
+          timestamp + i + batchSeed * 1000
+        );
+        questions.push({
+          id: String(x.id),
+          question: String(x.question ?? ""),
+          options: shuffledOpts,
+          correctIndex: newCorrectIdx,
+          explanation: String(x.explanation ?? ""),
+          isReview: false,
+        });
+      }
+      needNew = 0;
+    }
+  }
+
+  // A=トピックのみ選択の場合: preferredTopicIds から指針を組み立てる（バンクが無いときのLLM用）
   let effectivePlan = planSummary || goal;
   if (!effectivePlan && settings?.preferredTopicIds) {
     try {

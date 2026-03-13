@@ -136,6 +136,20 @@ export default function SettingsPage() {
     const summary =
       planText.slice(0, 2000) + (planText.length > 2000 ? "…" : "");
     try {
+      toast.info("500問の問題バンクを生成しています。1〜2分かかることがあります…");
+      const bankRes = await fetch("/api/ai/generate-question-bank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: settings.customLearningGoal || undefined,
+          level: settings.learningLevel,
+          planSummary: summary,
+        }),
+      });
+      const bankData = await bankRes.json().catch(() => ({}));
+      if (!bankRes.ok) {
+        throw new Error(bankData?.error ?? "問題バンクの生成に失敗しました。");
+      }
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -162,7 +176,11 @@ export default function SettingsPage() {
           },
         }),
       });
-      toast.success("設定を保存し、ダッシュボードに反映しました！");
+      toast.success(
+        bankData?.count
+          ? `問題バンク${bankData.count}問を保存し、設定を反映しました！`
+          : "設定を保存し、ダッシュボードに反映しました！"
+      );
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -170,7 +188,7 @@ export default function SettingsPage() {
     }
   };
 
-  /** A: トピック選択のみの場合、選択トピックで毎日問題が生成されるプラン要約を適用 */
+  /** A: トピック選択のみの場合、選択トピックで毎日問題が生成されるプラン要約を適用（500問バンクも生成） */
   const handleApplyTopicOnly = async () => {
     const topicLabels = settings.preferredTopicIds
       .map((id) => TOPICS.find((t) => t.id === id)?.label ?? id)
@@ -179,8 +197,22 @@ export default function SettingsPage() {
       topicLabels.length > 0
         ? topicLabels.join("、")
         : "汎用ビジネス教養";
-    const summary = `【問題形式】選択トピック: ${topicText}。毎日${settings.dailyQuizCount}問の4択クイズを、これらのトピックからAIが生成して出題します。日付が変わるたびに新しい問題が表示されます。`;
+    const summary = `【問題形式】選択トピック: ${topicText}。毎日${settings.dailyQuizCount}問の4択クイズを、これらのトピックから出題します。`;
     try {
+      toast.info("500問の問題バンクを生成しています。1〜2分かかることがあります…");
+      const bankRes = await fetch("/api/ai/generate-question-bank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: `選択トピック: ${topicText}`,
+          level: settings.learningLevel,
+          planSummary: summary,
+        }),
+      });
+      const bankData = await bankRes.json().catch(() => ({}));
+      if (!bankRes.ok) {
+        throw new Error(bankData?.error ?? "問題バンクの生成に失敗しました。");
+      }
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -193,7 +225,11 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "設定の保存に失敗しました。");
-      toast.success("選択トピックで毎日問題を開始しました。ダッシュボードで確認できます。");
+      toast.success(
+        bankData?.count
+          ? `問題バンク${bankData.count}問を保存しました。ダッシュボードで確認できます。`
+          : "選択トピックで毎日問題を開始しました。ダッシュボードで確認できます。"
+      );
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
