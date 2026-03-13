@@ -55,7 +55,7 @@ export default function SettingsPage() {
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
   const [planPreviewText, setPlanPreviewText] = useState("");
-  const [planQuestionCount, setPlanQuestionCount] = useState<number>(10);
+  const [planQuestionList, setPlanQuestionList] = useState<Array<{ question: string; options: string[]; correctIndex: number; explanation: string }>>([]);
   const [masterPlanLoading, setMasterPlanLoading] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const router = useRouter();
@@ -240,6 +240,7 @@ export default function SettingsPage() {
   const handlePlanCreate = async () => {
     setMasterPlanLoading(true);
     setPlanPreviewText("");
+    setPlanQuestionList([]);
     try {
       const res = await fetch("/api/ai/plan-create", {
         method: "POST",
@@ -247,14 +248,20 @@ export default function SettingsPage() {
         body: JSON.stringify({
           goal: settings.customLearningGoal,
           level: settings.learningLevel,
-          questionCount: planQuestionCount,
+          questionCount: settings.dailyQuizCount,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "生成に失敗しました");
       const planText = data?.planText ?? "";
+      const list = Array.isArray(data?.questionList) ? data.questionList : [];
       setPlanPreviewText(planText);
-      toast.success("プランを作成しました。下の「このプランを適用して開始する」で確定できます。");
+      setPlanQuestionList(list);
+      toast.success(
+        list.length > 0
+          ? `プランと問題リスト（${list.length}問）を作成しました。適用すると500問バンクが作られ、ダッシュボードで設定数だけランダムに出題されます。`
+          : "プランを作成しました。下の「このプランを適用して開始する」で確定できます。"
+      );
     } catch {
       toast.error("プランの生成に失敗しました。");
     } finally {
@@ -316,11 +323,35 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* 表示カスタマイズ：4つのトグル */}
+      {/* 表示カスタマイズ（最上部）：出題数共通・トグル一括 */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
           表示カスタマイズ
         </h2>
+        <div className="mb-4 pb-4 border-b border-gray-100">
+          <label className="mb-2 block text-xs font-medium text-gray-600">
+            1回の出題数（プランA・B・ダッシュボード共通）
+          </label>
+          <select
+            value={settings.dailyQuizCount}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                dailyQuizCount: Math.min(20, Math.max(1, Number(e.target.value) || 10)),
+              }))
+            }
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
+          >
+            {[1, 3, 5, 7, 10, 15, 20].map((n) => (
+              <option key={n} value={n}>
+                {n}問
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            ここで選んだ数がプラン作成・ダッシュボードの出題数にそのまま反映されます。
+          </p>
+        </div>
         <div className="space-y-4">
           <label className="flex cursor-pointer items-center justify-between gap-4">
             <span className="text-sm text-gray-700">今日は何の日を表示</span>
@@ -450,7 +481,7 @@ export default function SettingsPage() {
 
         <p className="mb-3 text-xs font-medium text-gray-600">A. トピック選択</p>
         <p className="mb-2 text-xs text-gray-500">
-          既存トピックから選ぶと、そのトピックについて毎日AIが問題を生成します。1日の問題数は下の「1日の標準問題数」で設定できます。
+          既存トピックから選ぶと、そのトピックについて毎日AIが問題を生成します。出題数は上の「1回の出題数」で共通設定されています。
         </p>
         <div className="mb-4 flex flex-wrap gap-2">
           {TOPICS.map((t) => (
@@ -511,20 +542,6 @@ export default function SettingsPage() {
 
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">
-            プラン作成時の問題数
-          </label>
-          <select
-            value={planQuestionCount}
-            onChange={(e) => setPlanQuestionCount(Number(e.target.value))}
-            className="mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          >
-            {[1, 3, 5, 10, 20].map((n) => (
-              <option key={n} value={n}>
-                {n}問
-              </option>
-            ))}
-          </select>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
             学びたいこと（Bの場合・例: TOEIC800点を目指す頻出単語）
           </label>
           <div className="flex flex-wrap items-start gap-2">
@@ -560,107 +577,10 @@ export default function SettingsPage() {
             level={settings.learningLevel}
             appliedPlanSummary={settings.appliedPlanSummary}
             previewOverrideText={planPreviewText}
+            questionList={planQuestionList}
             planLoading={masterPlanLoading}
             onApply={handleApply}
           />
-        </div>
-      </section>
-
-      {/* クイズ出題数 */}
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-gray-800">
-          本日の学習問題数
-        </h2>
-        <p className="mb-3 text-xs text-gray-500">
-          1回のセッションで出題する問題数です。選択した数がそのまま出題されます（デフォルト10問）。
-        </p>
-        <select
-          value={settings.dailyQuizCount}
-          onChange={(e) =>
-            setSettings((s) => ({
-              ...s,
-              dailyQuizCount: Number(e.target.value),
-            }))
-          }
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
-        >
-          {[1, 3, 5, 7, 10, 15, 20].map((n) => (
-            <option key={n} value={n}>
-              {n}問
-            </option>
-          ))}
-        </select>
-        <p className="mt-3 text-sm font-medium text-gray-800">
-          本日の目標: {settings.dailyQuizCount}問
-        </p>
-      </section>
-
-      {/* 表示モード */}
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-gray-800">
-          表示モード
-        </h2>
-        <div className="space-y-3">
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="radio"
-              name="displayMode"
-              value="standard"
-              checked={settings.displayMode === "standard"}
-              onChange={() =>
-                setSettings((s) => ({ ...s, displayMode: "standard" }))
-              }
-              className="mt-1 h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-            />
-            <div>
-              <span className="text-sm font-medium text-gray-800">
-                標準表示
-              </span>
-              <p className="text-xs text-gray-500">
-                「今日は何の日」と「AIニュース」を両方表示します。
-              </p>
-            </div>
-          </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="radio"
-              name="displayMode"
-              value="detail_special"
-              checked={settings.displayMode === "detail_special"}
-              onChange={() =>
-                setSettings((s) => ({ ...s, displayMode: "detail_special" }))
-              }
-              className="mt-1 h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-            />
-            <div>
-              <span className="text-sm font-medium text-gray-800">
-                詳細解説モード（今日は何の日）
-              </span>
-              <p className="text-xs text-gray-500">
-                「今日は何の日」を詳しく表示し、AIニュースは簡略表示します。
-              </p>
-            </div>
-          </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="radio"
-              name="displayMode"
-              value="detail_news"
-              checked={settings.displayMode === "detail_news"}
-              onChange={() =>
-                setSettings((s) => ({ ...s, displayMode: "detail_news" }))
-              }
-              className="mt-1 h-4 w-4 border-gray-300 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-            />
-            <div>
-              <span className="text-sm font-medium text-gray-800">
-                詳細解説モード（AIニュース）
-              </span>
-              <p className="text-xs text-gray-500">
-                AIニュースを詳しく表示し、「今日は何の日」は簡略表示します。
-              </p>
-            </div>
-          </label>
         </div>
       </section>
 

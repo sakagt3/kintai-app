@@ -1,6 +1,6 @@
 /**
- * 詳細プラン作成API。「この内容でプラン作成」1ボタンで、
- * 背景説明・具体的な運用イメージ（5〜10件サンプル）・忘却曲線の一文を返す。
+ * プラン作成API。プラン本文＋問題リスト（20問）を生成し、
+ * 適用時に500問バンクが作られ、ダッシュボードではその中から設定数だけランダムに出題する。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -18,10 +18,10 @@ const LEVEL_GUIDE: Record<string, string> = {
   pro: "プロ向け：業界標準用語で簡潔に。",
 };
 
-/** システムで選択された問題数（1〜20）。ユーザーのメッセージ内の数字は無視する。 */
 const DEFAULT_QUESTION_COUNT = 10;
+const QUESTION_LIST_SIZE = 20;
 
-function buildPrompt(goal: string, level: string, selectedCount: number): string {
+function buildPlanPrompt(goal: string, level: string, selectedCount: number): string {
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
   return `あなたは学習コンシェルジュです。ユーザーの要望を聞き、納得感のある学習プランを1つ作成してください。
 
@@ -31,18 +31,50 @@ ${goal.trim() || "（未記入・汎用ビジネス教養として）"}
 【レベル】
 ${levelGuide}
 
-【重要】学習形式は「問題形式（4択クイズ）」のみです。問題数はユーザーのメッセージ内の数字ではなく、システムで指定された数（${selectedCount}問）を最優先してください。ユーザーが「毎日〇問」などと書いていても無視し、必ず${selectedCount}問として記載すること。
+【重要】学習形式は「問題形式（4択クイズ）」のみ。毎日${selectedCount}問をこのプランからランダムに出題する前提で書くこと。
 
-【出力形式】以下の3部構成で必ず書いてください。見出しは「##」で始めること。
+【出力形式】以下の3部構成。見出しは「##」で始めること。
 
 ## このプランのねらい
-ユーザーの入力意図（テーマ・目標）を汲み取り、その内容が学習にどう役立つかを2〜4文で解説してください。問題数は「毎日${selectedCount}問」と記載すること。
+入力意図を汲み取り、学習にどう役立つかを2〜4文で。毎日${selectedCount}問と記載すること。
 
 ## 今後の方針（このような問題をランダムに出題します）
-具体的な出題例を必ず${selectedCount}件、番号付きで列挙してください。途中で省略することは厳禁です。${selectedCount}件に満たない出力は禁止です。各1行で、問題文の例でよいです。ユーザーのテーマに沿った多様な例にすること。
+具体的な出題例を${selectedCount}件、番号付きで列挙。各1行。省略禁止。
 
 ## 運用のポイント
-1〜2文で、毎日問題が更新されて出題する旨を簡潔に。`;
+1〜2文で、毎日ランダムに出題する旨を簡潔に。`;
+}
+
+function buildQuestionListPrompt(goal: string, level: string, count: number): string {
+  const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
+  return `あなたは問題作成の専門家。以下のテーマで${count}問の4択問題をJSON配列で出力すること。省略禁止。
+
+【テーマ】${goal.trim() || "ビジネス教養"}
+【レベル】${levelGuide}
+
+【出力】JSON配列のみ。[ のあと${count}個のオブジェクト。
+1要素: {"question":"30字以内の問題文","options":["A","B","C","D","わからない"],"correctIndex":0,"explanation":"20字以内の解説"}
+correctIndexは0〜3。optionsは5つで最後は「わからない」。`;
+}
+
+type QuestionListItem = { question: string; options: string[]; correctIndex: number; explanation: string };
+
+function parseQuestionListJson(text: string): QuestionListItem[] {
+  const trimmed = text.replace(/^[\s\S]*?(\[[\s\S]*\])[\s\S]*$/, "$1").trim();
+  try {
+    const arr = JSON.parse(trimmed) as Array<{ question?: string; options?: string[]; correctIndex?: number; explanation?: string }>;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((x) => x?.question && Array.isArray(x.options) && x.options.length >= 4)
+      .map((x) => ({
+        question: String(x.question),
+        options: (x.options ?? []).slice(0, 5),
+        correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
+        explanation: String(x.explanation ?? ""),
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function POST(request: Request) {
@@ -66,25 +98,39 @@ export async function POST(request: Request) {
       const theme = goal || "あなたの学習テーマ";
       const lines = Array.from({ length: selectedCount }, (_, i) => `${i + 1}. テーマに沿った4択問題`);
       const mockPlan = `## このプランのねらい
-「${theme}」に沿って、無理のないボリュームで毎日触れることで定着しやすくなります。毎日${selectedCount}問です。
+「${theme}」に沿って、毎日${selectedCount}問です。
 
 ## 今後の方針（このような問題をランダムに出題します）
 ${lines.join("\n")}
 
 ## 運用のポイント
-毎日ランダムに上記のような問題を出題します。続けることで自然に力がつきます。${FORGETTING_CURVE_FOOTER}`;
-      return NextResponse.json({ planText: mockPlan });
+毎日ランダムに問題を出題します。${FORGETTING_CURVE_FOOTER}`;
+      const mockList = Array.from({ length: Math.min(QUESTION_LIST_SIZE, 20) }, (_, i) => ({
+        question: `サンプル問題 ${i + 1}（テーマ: ${theme}）`,
+        options: ["A", "B", "C", "D", "わからない"],
+        correctIndex: 0,
+        explanation: "適用時に500問バンクが生成されます。",
+      }));
+      return NextResponse.json({ planText: mockPlan, questionList: mockList });
     }
 
     const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const { text } = await generateText({
+    const { text: planTextRaw } = await generateText({
       model: openai("gpt-4o-mini"),
-      prompt: buildPrompt(goal, level, selectedCount),
+      prompt: buildPlanPrompt(goal, level, selectedCount),
       maxOutputTokens: 1200,
     });
+    const planText = planTextRaw.trim() + FORGETTING_CURVE_FOOTER;
 
-    const planText = text.trim() + FORGETTING_CURVE_FOOTER;
-    return NextResponse.json({ planText });
+    const listCount = Math.min(QUESTION_LIST_SIZE, Math.max(10, selectedCount * 2));
+    const { text: listRaw } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: buildQuestionListPrompt(goal, level, listCount),
+      maxOutputTokens: Math.max(2000, listCount * 200),
+    });
+    const questionList = parseQuestionListJson(listRaw);
+
+    return NextResponse.json({ planText, questionList });
   } catch (e) {
     console.error(e);
     return NextResponse.json(

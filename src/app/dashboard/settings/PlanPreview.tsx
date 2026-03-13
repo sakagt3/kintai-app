@@ -9,6 +9,8 @@ import { Loader2, CheckCircle } from "lucide-react";
 
 type Level = "beginner" | "intermediate" | "advanced" | "pro";
 
+type QuestionItem = { question: string; options: string[]; correctIndex: number; explanation: string };
+
 type Props = {
   goal: string;
   level: Level;
@@ -16,7 +18,8 @@ type Props = {
   appliedPlanSummary?: string;
   /** 親で「この内容でプラン作成」により生成したテキスト */
   previewOverrideText?: string;
-  /** 親でプラン生成中か */
+  /** プラン作成時に生成した問題リスト（適用時に500問バンクが作られ、ダッシュボードで設定数だけランダムに出題） */
+  questionList?: QuestionItem[];
   planLoading?: boolean;
 };
 
@@ -24,6 +27,7 @@ export function PlanPreview({
   onApply,
   appliedPlanSummary,
   previewOverrideText,
+  questionList = [],
   planLoading,
 }: Props) {
   const [applying, setApplying] = useState(false);
@@ -60,6 +64,17 @@ export function PlanPreview({
           <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-white/80 p-3 text-[13px] leading-relaxed text-gray-800">
             {displayText}
           </pre>
+          {questionList.length > 0 && (
+            <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-violet-200/60 bg-white/90 p-3">
+              <p className="mb-2 text-xs font-semibold text-violet-800">生成された問題リスト（適用後は500問バンクから毎日設定数だけランダムに出題）</p>
+              <ol className="list-inside list-decimal space-y-1 text-[12px] text-gray-700">
+                {questionList.slice(0, 30).map((q, i) => (
+                  <li key={i}>{q.question}</li>
+                ))}
+                {questionList.length > 30 && <li className="text-gray-500">…他 {questionList.length - 30} 問</li>}
+              </ol>
+            </div>
+          )}
           {onApply && (
             <button
               type="button"

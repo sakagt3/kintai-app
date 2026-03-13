@@ -157,7 +157,7 @@ export function TodayAiContent() {
     fetchQuestions(false, 0, true, [], dailyQuizCount ?? undefined);
   }, [fetchQuestions, dailyQuizCount]);
 
-  // 初回: 設定APIで「本日の目標」を取得してから出題取得（バンク・問題数を確実に連携）
+  // 初回: 常に最新の保存済みデータを取得（キャッシュされた古い問題は使わない）
   useEffect(() => {
     let cancelled = false;
     fetch("/api/settings", { cache: "no-store", headers: { "Cache-Control": "no-store" } })
