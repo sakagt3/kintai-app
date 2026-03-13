@@ -27,18 +27,60 @@ export function TodayAiContent() {
   const [results, setResults] = useState<boolean[]>([]);
   const [sending, setSending] = useState(false);
   const [extraBatch, setExtraBatch] = useState(0);
+  const [dailyQuizCount, setDailyQuizCount] = useState<number | null>(null);
+
+  const shuffleOptionsClient = useCallback(
+    (options: string[], correctIndex: number): { options: string[]; correctIndex: number } => {
+      if (options.length < 4) return { options, correctIndex };
+      const four = options.slice(0, 4);
+      const correctText = four[Math.min(3, Math.max(0, correctIndex))];
+      const shuffled = [...four].sort(() => Math.random() - 0.5);
+      const newIdx = shuffled.indexOf(correctText);
+      const skip = options.length > 4 ? options[4] : "わからない（スキップ）";
+      return {
+        options: [...shuffled, skip],
+        correctIndex: newIdx >= 0 ? newIdx : 0,
+      };
+    },
+    []
+  );
 
   const fetchQuestions = useCallback(
-    (isMore = false, appendAfterIndex = 0) => {
+    (
+      isMore = false,
+      appendAfterIndex = 0,
+      isNewSession = false,
+      excludeIds: string[] = [],
+      count?: number
+    ) => {
       setLoading(true);
-      const url = isMore
-        ? `/api/ai/today-questions?more=1&batch=${extraBatch + 1}`
-        : "/api/ai/today-questions";
-      fetch(url)
+      const uniqueId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `t${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const params = new URLSearchParams();
+      params.set("unique_id", uniqueId);
+      params.set("_t", String(Date.now()));
+      params.set("t", String(Date.now()));
+      if (typeof count === "number" && count >= 1 && count <= 20) {
+        params.set("count", String(count));
+      }
+      if (isNewSession) params.set("is_new_session", "1");
+      if (isMore) {
+        params.set("more", "1");
+        params.set("batch", String(extraBatch + 1));
+        if (excludeIds.length > 0) params.set("exclude_ids", excludeIds.join(","));
+      }
+      const url = `/api/ai/today-questions?${params.toString()}`;
+      fetch(url, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+        cache: "no-store",
+      })
         .then((res) => res.json().catch(() => ({})))
         .then((data) => {
           const raw = Array.isArray(data.questions) ? data.questions : [];
-          const valid = raw
+          const SKIP = "わからない（スキップ）";
+          let valid = raw
             .filter((q: unknown) => {
               if (!q || typeof q !== "object") return false;
               const o = q as { question?: unknown; options?: unknown };
@@ -57,22 +99,28 @@ export function TodayAiContent() {
                 explanation?: string;
                 isReview?: boolean;
               };
-              const opts = Array.isArray(x.options) ? x.options : [];
+              let opts: string[] = Array.isArray(x.options) ? [...x.options] : [];
+              if (opts.length > 5) opts = opts.slice(0, 5);
+              if (opts[opts.length - 1] !== SKIP && opts[opts.length - 1] !== "わからない") {
+                opts.push(SKIP);
+              }
+              let correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
+              const shuffled = shuffleOptionsClient(opts, correctIdx);
+              opts = shuffled.options;
+              correctIdx = shuffled.correctIndex;
               return {
                 id:
                   typeof x.id === "string"
                     ? x.id
                     : `q-${Math.random().toString(36).slice(2, 9)}`,
                 question: String(x.question ?? ""),
-                options: opts.length <= 5 ? opts : opts.slice(0, 5),
-                correctIndex: Math.min(
-                  3,
-                  Math.max(0, Number(x.correctIndex) ?? 0)
-                ),
+                options: opts,
+                correctIndex: correctIdx,
                 explanation: String(x.explanation ?? ""),
                 isReview: Boolean(x.isReview),
               };
             });
+          valid = [...valid].sort(() => Math.random() - 0.5);
           if (isMore) {
             setQuestions((prev) => [...prev, ...valid]);
             setIndex(appendAfterIndex);
@@ -86,14 +134,27 @@ export function TodayAiContent() {
           setRetentionRate(
             typeof data.retentionRate === "number" ? data.retentionRate : null
           );
+          setDailyQuizCount(
+            typeof data.dailyQuizCount === "number" ? data.dailyQuizCount : null
+          );
           setSelectedIndex(null);
           setShowResult(false);
         })
         .catch(() => (!isMore && setQuestions([])))
         .finally(() => setLoading(false));
     },
-    [extraBatch]
+    [extraBatch, shuffleOptionsClient]
   );
+
+  const startNewSession = useCallback(() => {
+    setQuestions([]);
+    setIndex(0);
+    setResults([]);
+    setExtraBatch(0);
+    setSelectedIndex(null);
+    setShowResult(false);
+    fetchQuestions(false, 0, true, [], dailyQuizCount ?? undefined);
+  }, [fetchQuestions, dailyQuizCount]);
 
   useEffect(() => {
     fetchQuestions();
@@ -165,6 +226,9 @@ export function TodayAiContent() {
           <Loader2 className="h-4 w-4 animate-spin" />
           今日の問題を生成中…
         </div>
+        <p className="text-xs text-slate-400">
+          エビングハウスの忘却曲線に基づき出題中
+        </p>
       </div>
     );
   }
@@ -206,7 +270,15 @@ export function TodayAiContent() {
         <div className="flex flex-col items-center gap-2 pt-2">
           <button
             type="button"
-            onClick={() => fetchQuestions(true, questions.length)}
+            onClick={() =>
+              fetchQuestions(
+                true,
+                questions.length,
+                false,
+                questions.map((q) => q.id),
+                dailyQuizCount ?? undefined
+              )
+            }
             disabled={loading}
             className="flex items-center justify-center gap-2 rounded-xl border border-[#1E293B]/40 bg-white px-4 py-3 text-sm font-medium text-[#1E293B] hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
@@ -219,9 +291,21 @@ export function TodayAiContent() {
               </>
             )}
           </button>
+          <button
+            type="button"
+            onClick={startNewSession}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "新しい学習を開始する"
+            )}
+          </button>
         </div>
         <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
-          ※本プログラムはエビングハウスの忘却曲線に基づき、最適なタイミングで復習を促すよう設計されています。
+          エビングハウスの忘却曲線に基づき、最適な復習タイミングを算出しています。
         </p>
       </div>
     );
@@ -239,6 +323,11 @@ export function TodayAiContent() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>
+          {dailyQuizCount !== null && (
+            <span className="mr-2 font-medium text-[#1E293B] dark:text-slate-300">
+              本日の学習問題数: {dailyQuizCount}問
+            </span>
+          )}
           問 {index + 1} / {questions.length}
           {current.isReview && (
             <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
@@ -330,7 +419,7 @@ export function TodayAiContent() {
       )}
 
       <p className="text-[11px] text-slate-400 dark:text-slate-500">
-        ※本プログラムはエビングハウスの忘却曲線に基づき、最適なタイミングで復習を促すよう設計されています。
+        エビングハウスの忘却曲線に基づき出題中。最適な復習タイミングを算出しています。
       </p>
     </div>
   );

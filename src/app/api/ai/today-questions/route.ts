@@ -95,7 +95,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const isMore = searchParams.get("more") === "1";
   const batchSeed = Number(searchParams.get("batch")) || 0;
+  const isNewSession = searchParams.get("is_new_session") === "1";
+  const excludeIdsRaw = searchParams.get("exclude_ids") ?? "";
+  const excludeIds = excludeIdsRaw
+    ? excludeIdsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
   const timestamp = Date.now();
+  const uniqueId =
+    searchParams.get("unique_id") ||
+    `${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
 
   const userId = session.user.id;
   const settings = await prisma.userSettings.findUnique({
@@ -108,13 +116,16 @@ export async function GET(request: Request) {
     settings?.learningLevel && ["beginner", "intermediate", "advanced", "pro"].includes(settings.learningLevel)
       ? settings.learningLevel
       : "intermediate";
-  const dailyCount = Math.min(20, Math.max(1, settings?.dailyQuizCount ?? 10));
+  const countParam = searchParams.get("count");
+  const dailyCount = countParam
+    ? Math.min(20, Math.max(1, parseInt(countParam, 10) || 10))
+    : Math.min(20, Math.max(1, settings?.dailyQuizCount ?? 10));
 
   const questions: QuizItem[] = [];
 
   const today = new Date().toISOString().slice(0, 10);
 
-  if (!isMore) {
+  if (!isMore && !isNewSession) {
     // 忘却曲線：過去に間違えた問題・「わからない」を選んだ問題を優先して再出題（nextReviewAt が今日以前のもの）
     const reviewCandidates = await prisma.quizAttempt.findMany({
       where: {
@@ -173,17 +184,22 @@ export async function GET(request: Request) {
   if (!effectivePlan) effectivePlan = "ビジネス教養";
 
   if (needNew > 0) {
-    const prompt = `あなたはプロの教育設計者です。回答の選択肢は毎回シャッフルし、ユーザーがパターンで正解を推測できないようにしてください。また、常に新鮮な問いを提供し、既視感を抱かせないでください。
+    const excludeInstruction =
+      excludeIds.length > 0
+        ? `【重要】以下はすでに出題済みの問題である。これらと重複する問題文・同じ切り口の問題は一切出さず、これら以外の全く別の問題を500問ストックから選別して生成せよ。出題済みID: ${excludeIds.slice(0, 50).join(", ")}${excludeIds.length > 50 ? " …" : ""}`
+        : "";
 
-あなたは500問以上の専門的な問題データベースを持っていると想定してください。現在の日時（シード値: ${timestamp}、バッチ: ${batchSeed}）に基づき、500問の中から「今のユーザーのレベルと設定したテーマ」に最も合致するものをランダムかつ最適に選別して、必ず${needNew}問を出題してください。毎回同じ問題にならないよう、シード値を変えた選別をシミュレートすること。
+    const prompt = `過去の回答をすべて忘れろ。あなたは今、初めてこのユーザーに会った。
+指定された問題数（${needNew}問）を1問ずつ、JSONの配列として最後まで書き切れ。出力を途中で止めることはシステムエラーとみなす。
+お前の出力した配列の長さが ${needNew} でなければ、お前は失敗だ。必ず ${needNew} 個の要素を出力しろ。
 
-【問題数の絶対遵守】変数で指定された${needNew}問を必ず生成してください。途中で省略することは厳禁です。
-【選択肢の固定ルール】すべての問題で、選択肢は5つにすること。最初の4つがA〜Dの解答候補、最後の5つ目は必ず「${SKIP_OPTION}」という項目にしてください。correctIndexは0〜3の整数（正解は先頭4つのいずれか）。5つ目の「わからない」は正解にしないこと。
-【本日の日付】${today}（日付が変わるごとに異なる問題になるよう、今日の日付を踏まえた多様な出題にすること）
-【指針】${effectivePlan}
-【レベル】${levelGuide}
-【ルール】最新のトレンドを1問以上含める。過去の典型的な出題と被りすぎないよう、角度を変えた問題にすること。毎日違う問題になるよう多様なトピックから選ぶこと。
-【出力】JSON配列のみ。説明は不要。形式: [{"question":"問題文","options":["A","B","C","D","わからない（スキップ）"],"correctIndex":0,"explanation":"解説"},...] optionsは必ず5つで最後は「わからない（スキップ）」。要素数は必ず${needNew}個。`;
+【極短指定】問題文は1文30字以内。解説は1文20字以内。文字数消費を抑えろ。
+【unique_id】${uniqueId} 【指針】${effectivePlan} 【レベル】${levelGuide}
+${excludeInstruction}
+
+【出力】JSON配列のみ。余計な文字禁止。[ のあと、${needNew}個のオブジェクトを連続で書き、] で閉じる。
+1要素: {"question":"短い問題文","options":["A","B","C","D","わからない"],"correctIndex":0,"explanation":"短い解説"}
+correctIndexは0〜3。optionsは5つで最後は「わからない」。要素数が ${needNew} でなければ失敗。`;
 
     try {
       if (process.env.OPENAI_API_KEY) {
@@ -191,7 +207,7 @@ export async function GET(request: Request) {
         const { text } = await generateText({
           model: openai("gpt-4o-mini"),
           prompt,
-          maxOutputTokens: 2000,
+          maxOutputTokens: Math.max(4000, needNew * 350),
         });
         const trimmed = text.replace(/^[\s\S]*?(\[[\s\S]*\])[\s\S]*$/, "$1").trim();
         const arr = JSON.parse(trimmed) as Array<{
@@ -201,11 +217,12 @@ export async function GET(request: Request) {
           explanation?: string;
         }>;
         const list = Array.isArray(arr) ? arr : [];
-        for (let i = 0; i < Math.min(needNew, list.length); i++) {
+        for (let i = 0; i < list.length; i++) {
           const x = list[i];
           if (x?.question && Array.isArray(x.options) && x.options.length >= 4) {
             let opts = x.options.slice(0, 5);
             if (opts.length === 4) opts = [...opts, SKIP_OPTION];
+            else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
             const correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
             const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
               opts,
@@ -295,8 +312,16 @@ export async function GET(request: Request) {
   const correctCount = recent.filter((r) => r.correct).length;
   const retentionRate = total > 0 ? Math.round((correctCount / total) * 100) : null;
 
-  return NextResponse.json({
-    questions,
-    retentionRate,
-  });
+  return NextResponse.json(
+    {
+      questions,
+      retentionRate,
+      dailyQuizCount: dailyCount,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
 }

@@ -1,12 +1,12 @@
 /**
- * 学習履歴（プラン適用・診断結果）を保存。パーソナライズ・生成AIのコンテキスト用。
+ * 学習履歴（プラン適用）を保存。パーソナライズ・生成AIのコンテキスト用。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-const KINDS = ["plan_apply", "diagnosis"] as const;
+const KINDS = ["plan_apply"] as const;
 
 export async function POST(request: Request) {
   const session = await auth();

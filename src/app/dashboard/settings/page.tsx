@@ -533,10 +533,10 @@ export default function SettingsPage() {
       {/* クイズ出題数 */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-800">
-          1日の標準問題数
+          本日の学習問題数
         </h2>
         <p className="mb-3 text-xs text-gray-500">
-          選択式または生成AIで問題数を指定しない場合に適用されます（デフォルト10問）。
+          1回のセッションで出題する問題数です。選択した数がそのまま出題されます（デフォルト10問）。
         </p>
         <select
           value={settings.dailyQuizCount}
@@ -548,12 +548,15 @@ export default function SettingsPage() {
           }
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
         >
-          {[1, 3, 5, 10, 20].map((n) => (
+          {[1, 3, 5, 7, 10, 15, 20].map((n) => (
             <option key={n} value={n}>
               {n}問
             </option>
           ))}
         </select>
+        <p className="mt-3 text-sm font-medium text-gray-800">
+          本日の学習問題数: {settings.dailyQuizCount}問
+        </p>
       </section>
 
       {/* 表示モード */}
