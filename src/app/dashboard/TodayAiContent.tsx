@@ -157,8 +157,24 @@ export function TodayAiContent() {
     fetchQuestions(false, 0, true, [], dailyQuizCount ?? undefined);
   }, [fetchQuestions, dailyQuizCount]);
 
+  // 初回: 設定APIで「本日の目標」を取得してから出題取得（バンク・問題数を確実に連携）
   useEffect(() => {
-    fetchQuestions();
+    let cancelled = false;
+    fetch("/api/settings", { cache: "no-store", headers: { "Cache-Control": "no-store" } })
+      .then((r) => r.json())
+      .then((data: { settings?: { dailyQuizCount?: number } }) => {
+        if (cancelled) return;
+        const n = data?.settings?.dailyQuizCount;
+        const count =
+          typeof n === "number" && n >= 1 && n <= 20 ? n : 10;
+        fetchQuestions(false, 0, false, [], count);
+      })
+      .catch(() => {
+        if (!cancelled) fetchQuestions(false, 0, false, [], 10);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchQuestions]);
 
   const current = questions[index];

@@ -117,9 +117,10 @@ export async function GET(request: Request) {
       ? settings.learningLevel
       : "intermediate";
   const countParam = searchParams.get("count");
-  const dailyCount = countParam
-    ? Math.min(20, Math.max(1, parseInt(countParam, 10) || 10))
-    : Math.min(20, Math.max(1, settings?.dailyQuizCount ?? 10));
+  const dailyCount =
+    countParam !== null && countParam !== ""
+      ? Math.min(20, Math.max(1, parseInt(countParam, 10) || 10))
+      : Math.min(20, Math.max(1, settings?.dailyQuizCount ?? 10));
 
   const questions: QuizItem[] = [];
 
@@ -166,14 +167,27 @@ export async function GET(request: Request) {
   let needNew = isMore ? dailyCount : dailyCount - questions.length;
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
 
-  // 問題バンクがあればここからランダム抽出（毎回固定にならない）
+  // 問題バンクがあればここからランダム抽出（ダッシュボードと連携・毎回異なる問題）
   if (needNew > 0) {
     const bank = await prisma.questionBank.findUnique({
       where: { userId },
     });
-    const bankList = Array.isArray(bank?.questions) ? (bank.questions as QuizItem[]) : [];
+    const raw = bank?.questions;
+    const bankList: QuizItem[] = Array.isArray(raw)
+      ? (raw as unknown[]).map((q: unknown, i: number) => {
+          const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
+          return {
+            id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
+            question: String(x.question ?? ""),
+            options: Array.isArray(x.options) ? (x.options as string[]) : [],
+            correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
+            explanation: String(x.explanation ?? ""),
+            isReview: false,
+          };
+        }).filter((q) => q.question && q.options.length >= 4)
+      : [];
     const pool = bankList.filter(
-      (q) => q && typeof q.id === "string" && !excludeIds.includes(q.id)
+      (q) => q.id && !excludeIds.includes(q.id)
     );
     if (pool.length >= needNew) {
       const shuffled = seededShuffle(pool, timestamp + batchSeed * 1000);

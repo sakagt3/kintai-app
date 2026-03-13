@@ -58,7 +58,7 @@ model UserSettings {
   displayVolume       String   @default("simple") // "simple" | "detailed"
   preferredTopicIds   String?  // JSON array of topic ids
   customLearningGoal  String?  // 自由記述「TOEIC 800点を目指す」等 → LLM連携用
-  dailyQuizCount      Int      @default(5)
+  dailyQuizCount      Int      @default(10)
   learningLevel       String   @default("intermediate") // beginner | intermediate | advanced | pro
   contentFocus        String   @default("topic") // "topic" | "quiz" トピック中心 vs 問題形式
   appliedPlanSummary  String?  // 適用した学習プラン（LLM生成方針）。メイン画面で表示
