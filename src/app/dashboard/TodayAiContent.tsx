@@ -52,13 +52,14 @@ export function TodayAiContent() {
               explanation?: string;
               isReview?: boolean;
             };
+            const opts = Array.isArray(x.options) ? x.options : [];
             return {
               id:
                 typeof x.id === "string"
                   ? x.id
                   : `q-${Math.random().toString(36).slice(2, 9)}`,
               question: String(x.question ?? ""),
-              options: Array.isArray(x.options) ? x.options.slice(0, 4) : [],
+              options: opts.length <= 5 ? opts : opts.slice(0, 5),
               correctIndex: Math.min(
                 3,
                 Math.max(0, Number(x.correctIndex) ?? 0)
@@ -86,8 +87,15 @@ export function TodayAiContent() {
 
   const current = questions[index];
   const safeOptions = Array.isArray(current?.options) ? current.options : [];
+  const isSkipOption = (idx: number) =>
+    current?.options?.length === 5 && idx === 4;
+  const skipped =
+    selectedIndex !== null && current && isSkipOption(selectedIndex);
   const correct =
-    selectedIndex !== null && current && selectedIndex === current.correctIndex;
+    !skipped &&
+    selectedIndex !== null &&
+    current &&
+    selectedIndex === current.correctIndex;
 
   const saveAttempt = useCallback(
     (q: QuizItem, correctAnswer: boolean) => {
@@ -119,9 +127,14 @@ export function TodayAiContent() {
     if (!current || selectedIndex !== null) return;
     setSelectedIndex(choiceIndex);
     setShowResult(true);
-    const correctAnswer = choiceIndex === current.correctIndex;
-    setResults((prev) => [...prev, correctAnswer]);
-    saveAttempt(current, correctAnswer);
+    if (isSkipOption(choiceIndex)) {
+      setResults((prev) => [...prev, false]);
+      saveAttempt(current, false);
+    } else {
+      const correctAnswer = choiceIndex === current.correctIndex;
+      setResults((prev) => [...prev, correctAnswer]);
+      saveAttempt(current, correctAnswer);
+    }
   };
 
   const handleNext = () => {
@@ -221,7 +234,7 @@ export function TodayAiContent() {
                 className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm transition hover:border-[#1E293B]/30 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/50 dark:hover:bg-slate-800"
               >
                 <span className="w-5 shrink-0 font-mono text-slate-500">
-                  {["A", "B", "C", "D"][i]}
+                  {["A", "B", "C", "D", "E"][i] ?? String(i + 1)}
                 </span>
                 {opt}
               </button>
@@ -232,17 +245,26 @@ export function TodayAiContent() {
         <div className="space-y-3">
           <div
             className={`flex items-center gap-2 rounded-xl px-4 py-3 ${
-              correct
-                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
-                : "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-200"
+              skipped
+                ? "bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300"
+                : correct
+                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                  : "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-200"
             }`}
           >
-            {correct ? (
-              <CheckCircle className="h-5 w-5 shrink-0" />
+            {skipped ? (
+              <span className="font-medium">スキップしました</span>
+            ) : correct ? (
+              <>
+                <CheckCircle className="h-5 w-5 shrink-0" />
+                <span className="font-medium">正解です！</span>
+              </>
             ) : (
-              <XCircle className="h-5 w-5 shrink-0" />
+              <>
+                <XCircle className="h-5 w-5 shrink-0" />
+                <span className="font-medium">不正解</span>
+              </>
             )}
-            <span className="font-medium">{correct ? "正解です！" : "不正解"}</span>
           </div>
           <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
             {current?.explanation ?? ""}

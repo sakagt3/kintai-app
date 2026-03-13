@@ -55,6 +55,7 @@ export default function SettingsPage() {
   });
   const [profile, setProfile] = useState<ProfileState>({ name: "", email: "" });
   const [planPreviewText, setPlanPreviewText] = useState("");
+  const [planQuestionCount, setPlanQuestionCount] = useState<number>(10);
   const [masterPlanLoading, setMasterPlanLoading] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const router = useRouter();
@@ -210,6 +211,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           goal: settings.customLearningGoal,
           level: settings.learningLevel,
+          questionCount: planQuestionCount,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -451,7 +453,7 @@ export default function SettingsPage() {
 
         <p className="mb-2 text-xs font-medium text-gray-600">B. 自由記述（生成AI）</p>
         <p className="mb-2 text-xs text-gray-500">
-          例「TOEIC800点を目指す頻出単語」のように書くと、その内容で毎日問題を生成します。問題数やボリュームを書かない場合、AIが「頻出単語500語を抽出して毎日5問」のように提案します。
+          例「TOEIC800点を目指す頻出単語」のように書くと、その内容で毎日問題を生成します。
         </p>
         <p className="mb-3 text-xs text-amber-700/90 bg-amber-50/80 rounded-lg px-3 py-2 border border-amber-200/60">
           ※難易度は「基本設定」の学習レベル（初級/中級/上級）が適用されます。
@@ -473,18 +475,29 @@ export default function SettingsPage() {
 
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">
+            プラン作成時の問題数
+          </label>
+          <select
+            value={planQuestionCount}
+            onChange={(e) => setPlanQuestionCount(Number(e.target.value))}
+            className="mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          >
+            {[1, 3, 5, 10, 20].map((n) => (
+              <option key={n} value={n}>
+                {n}問
+              </option>
+            ))}
+          </select>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
             学びたいこと（Bの場合・例: TOEIC800点を目指す頻出単語）
           </label>
-          <p className="mb-1.5 text-[11px] text-gray-500">
-            問題数（毎日〇問）や「頻出500語」など、書かない場合はAIが提案します。
-          </p>
           <div className="flex flex-wrap items-start gap-2">
             <textarea
               value={settings.customLearningGoal}
               onChange={(e) =>
                 setSettings((s) => ({ ...s, customLearningGoal: e.target.value }))
               }
-              placeholder="例: TOEIC800点を目指す頻出単語、毎日5問"
+              placeholder="例: TOEIC800点を目指す頻出単語"
               rows={2}
               className="w-full max-w-md rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#1E293B] focus:outline-none focus:ring-1 focus:ring-[#1E293B] dark:border-slate-600 dark:bg-slate-800 dark:text-white"
             />
@@ -535,7 +548,7 @@ export default function SettingsPage() {
           }
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]"
         >
-          {[5, 10, 15, 20].map((n) => (
+          {[1, 3, 5, 10, 20].map((n) => (
             <option key={n} value={n}>
               {n}問
             </option>
