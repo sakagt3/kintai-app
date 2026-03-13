@@ -555,7 +555,7 @@ export default function SettingsPage() {
           ))}
         </select>
         <p className="mt-3 text-sm font-medium text-gray-800">
-          本日の学習問題数: {settings.dailyQuizCount}問
+          本日の目標: {settings.dailyQuizCount}問
         </p>
       </section>
 

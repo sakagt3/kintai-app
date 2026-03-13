@@ -62,6 +62,7 @@ export function TodayAiContent() {
       params.set("unique_id", uniqueId);
       params.set("_t", String(Date.now()));
       params.set("t", String(Date.now()));
+      params.set("random", String(Math.random()));
       if (typeof count === "number" && count >= 1 && count <= 20) {
         params.set("count", String(count));
       }
@@ -73,7 +74,7 @@ export function TodayAiContent() {
       }
       const url = `/api/ai/today-questions?${params.toString()}`;
       fetch(url, {
-        headers: { "Cache-Control": "no-store, max-age=0" },
+        headers: { "Cache-Control": "no-store", "Pragma": "no-cache" },
         cache: "no-store",
       })
         .then((res) => res.json().catch(() => ({})))
@@ -102,7 +103,7 @@ export function TodayAiContent() {
               let opts: string[] = Array.isArray(x.options) ? [...x.options] : [];
               if (opts.length > 5) opts = opts.slice(0, 5);
               if (opts[opts.length - 1] !== SKIP && opts[opts.length - 1] !== "わからない") {
-                opts.push(SKIP);
+                opts.push("わからない");
               }
               let correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
               const shuffled = shuffleOptionsClient(opts, correctIdx);
@@ -252,6 +253,66 @@ export function TodayAiContent() {
 
   if (index >= questions.length) {
     const correctCount = results.filter(Boolean).length;
+    const allCorrect =
+      questions.length > 0 &&
+      results.length === questions.length &&
+      results.every(Boolean);
+
+    if (allCorrect) {
+      return (
+        <div className="space-y-4">
+          <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-5 text-center dark:border-amber-500 dark:bg-amber-950/40">
+            <p className="text-lg font-bold text-amber-800 dark:text-amber-200">
+              おめでとうございます！このカスタム学習をクリアしました！
+            </p>
+            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+              {questions.length} 問すべて正解です。
+            </p>
+          </div>
+          <p className="text-center text-xs text-slate-500">
+            進捗をリセットして新しい500問サイクルを開始するか、次のステップへ進めます。
+          </p>
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={startNewSession}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 rounded-xl border border-[#1E293B]/40 bg-[#1E293B] px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "進捗をリセットして新しいサイクルを開始"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                fetchQuestions(
+                  true,
+                  questions.length,
+                  false,
+                  questions.map((q) => q.id),
+                  dailyQuizCount ?? undefined
+                )
+              }
+              disabled={loading}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "次のステップへ（追加問題を表示）"
+              )}
+            </button>
+          </div>
+          <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
+            エビングハウスの忘却曲線に基づき、最適な復習タイミングを算出しています。
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
         <div className="rounded-lg bg-emerald-50 px-4 py-3 text-center dark:bg-emerald-950/30">
@@ -325,7 +386,7 @@ export function TodayAiContent() {
         <span>
           {dailyQuizCount !== null && (
             <span className="mr-2 font-medium text-[#1E293B] dark:text-slate-300">
-              本日の学習問題数: {dailyQuizCount}問
+              本日の目標: {dailyQuizCount}問
             </span>
           )}
           問 {index + 1} / {questions.length}
