@@ -10,7 +10,7 @@ const ITMEDIA_TOP_RSS = "https://rss.itmedia.co.jp/rss/2.0/topstory.xml";
 const ITMEDIA_NEWS_RSS = "https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml";
 const parser = new Parser({ timeout: 8000 });
 
-const MIN_SUMMARY_LENGTH = 150;
+const MIN_SUMMARY_LENGTH = 200;
 
 const COMPLEMENT_SUFFIX =
   " この記事の詳細はリンク先でご確認ください。ニュースの概要は以上です。";
