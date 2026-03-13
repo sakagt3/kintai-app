@@ -101,17 +101,21 @@ function Sidebar({
 
 export function DashboardShell({ displayName, isAdmin, children }: DashboardShellProps) {
   const pathname = usePathname() ?? "";
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    const q = window.matchMedia(`(min-width: ${LG_PX}px)`);
-    const update = () => setIsMobile(!q.matches);
-    update();
-    q.addEventListener("change", update);
-    return () => q.removeEventListener("change", update);
+    const check = () => setIsMobile(window.innerWidth < LG_PX);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
-  if (isMobile === null) return null;
+
+  if (isMobile === null) return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-100">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+    </div>
+  );
 
   if (isMobile) {
     return (
