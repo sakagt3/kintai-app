@@ -167,25 +167,38 @@ export async function GET(request: Request) {
   let needNew = isMore ? dailyCount : dailyCount - questions.length;
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
 
-  // 問題バンクがあればここからランダム抽出（ダッシュボードと連携・毎回異なる問題）
+  // 問題バンクがあればここからランダム抽出（必ずバンク優先。Json の形に依存しないよう正規化）
   if (needNew > 0) {
     const bank = await prisma.questionBank.findUnique({
       where: { userId },
     });
     const raw = bank?.questions;
-    const bankList: QuizItem[] = Array.isArray(raw)
-      ? (raw as unknown[]).map((q: unknown, i: number) => {
-          const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-          return {
-            id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
-            question: String(x.question ?? ""),
-            options: Array.isArray(x.options) ? (x.options as string[]) : [],
-            correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
-            explanation: String(x.explanation ?? ""),
-            isReview: false,
-          };
-        }).filter((q) => q.question && q.options.length >= 4)
-      : [];
+    let rawArr: unknown[] = [];
+    if (Array.isArray(raw)) {
+      rawArr = raw;
+    } else if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+      rawArr = Object.values(raw);
+    } else if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        rawArr = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        rawArr = [];
+      }
+    }
+    const bankList: QuizItem[] = rawArr
+      .map((q: unknown, i: number) => {
+        const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
+        return {
+          id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
+          question: String(x.question ?? ""),
+          options: Array.isArray(x.options) ? (x.options as string[]) : [],
+          correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
+          explanation: String(x.explanation ?? ""),
+          isReview: false,
+        };
+      })
+      .filter((q) => q.question && q.options.length >= 4);
     const pool = bankList.filter(
       (q) => q.id && !excludeIds.includes(q.id)
     );
@@ -234,13 +247,16 @@ export async function GET(request: Request) {
   if (!effectivePlan) effectivePlan = "ビジネス教養";
 
   if (needNew > 0) {
-    const excludeInstruction =
-      excludeIds.length > 0
-        ? `【重要】以下はすでに出題済み。これらと重複しない別問題を生成せよ。出題済みID: ${excludeIds.slice(0, 30).join(", ")}`
-        : "";
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("[today-questions] OPENAI_API_KEY が未設定のため問題を生成できません。空の配列を返します。");
+      // 固定データを返さず、空のまま返す
+    } else {
+      const excludeInstruction =
+        excludeIds.length > 0
+          ? `【重要】以下はすでに出題済み。これらと重複しない別問題を生成せよ。出題済みID: ${excludeIds.slice(0, 30).join(", ")}`
+          : "";
 
-    try {
-      if (process.env.OPENAI_API_KEY) {
+      try {
         const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
         let collected: QuizItem[] = [];
         const BATCH_SIZE = 5;
@@ -248,7 +264,10 @@ export async function GET(request: Request) {
         for (let batch = 0; batch < maxBatches && collected.length < needNew; batch++) {
           const toRequest = Math.min(BATCH_SIZE, needNew - collected.length);
           const seed = timestamp + batch * 10000;
-          const prompt = `あなたは500問以上の問題データベースを持つ専門講師。必ず${toRequest}問だけJSON配列で出力。省略禁止。
+          const prompt = `【ユニークID】${uniqueId}
+この unique_id に基づき、過去の出力をすべて無視し、今回だけの「全く新しい問題」のみを生成せよ。同じ問題の再利用は禁止。
+
+あなたは500問以上の問題データベースを持つ専門講師。必ず${toRequest}問だけJSON配列で出力。省略禁止。
 【指針】${effectivePlan} 【レベル】${levelGuide} ${excludeInstruction}
 【出力】JSON配列のみ。[ のあと${toRequest}個のオブジェクト。1要素: {"question":"30字以内","options":["A","B","C","D","わからない"],"correctIndex":0,"explanation":"20字以内"} correctIndexは0〜3。`;
 
@@ -290,47 +309,10 @@ export async function GET(request: Request) {
           }
         }
         questions.push(...collected.slice(0, needNew));
-      } else {
-        const MOCK_POOL: QuizItem[] = [
-          { id: "m1", question: "RAGの「R」は何の略ですか？", options: ["Retrieval", "Real-time", "Random", "Resource", SKIP_OPTION], correctIndex: 0, explanation: "RAGは Retrieval-Augmented Generation の略。", isReview: false },
-          { id: "m2", question: "LLMで「Hallucination」とは？", options: ["幻覚的な出力", "高速応答", "多言語対応", "暗号化", SKIP_OPTION], correctIndex: 0, explanation: "事実に基づかない内容を生成する現象。", isReview: false },
-          { id: "m3", question: "機械学習の「教師あり学習」とは？", options: ["正解付きデータで学習", "ラベルなしのみで学習", "強化学習の別名", "推論のみ", SKIP_OPTION], correctIndex: 0, explanation: "正解付きデータでモデルを学習させる方式。", isReview: false },
-          { id: "m4", question: "APIの「REST」の特徴は？", options: ["URLでリソース表現しHTTPで操作", "必ずXMLで通信", "状態をサーバーが保持", "TCPのみ", SKIP_OPTION], correctIndex: 0, explanation: "リソースをURLで表現しGET/POSTで操作。", isReview: false },
-          { id: "m5", question: "「マイクロサービス」の利点は？", options: ["独立してスケール・デプロイ可", "1台のサーバーで動作", "モノリスより遅い", "言語統一必須", SKIP_OPTION], correctIndex: 0, explanation: "サービスを小さく分離し独立運用可能。", isReview: false },
-          { id: "m6", question: "「DevOps」の目的は？", options: ["開発と運用の連携・自動化", "開発のみ", "運用のみ", "テストの省略", SKIP_OPTION], correctIndex: 0, explanation: "開発と運用を連携しリリースを効率化。", isReview: false },
-          { id: "m7", question: "「CI」の略は？", options: ["Continuous Integration", "Central Intelligence", "Code Inspection", "Cache Invalidation", SKIP_OPTION], correctIndex: 0, explanation: "継続的インテグレーション。", isReview: false },
-          { id: "m8", question: "「CD」の略は？", options: ["Continuous Delivery", "Compact Disk", "Code Deploy", "Cache Data", SKIP_OPTION], correctIndex: 0, explanation: "継続的デリバリー。", isReview: false },
-          { id: "m9", question: "「API」の略は？", options: ["Application Programming Interface", "Advanced Program Input", "Automated Process Integration", "Application Protocol Internet", SKIP_OPTION], correctIndex: 0, explanation: "アプリケーション間の連携仕様。", isReview: false },
-          { id: "m10", question: "「SQL」の用途は？", options: ["データベース問い合わせ", "シーケンス制御", "セキュリティ認証", "ストレージ管理", SKIP_OPTION], correctIndex: 0, explanation: "リレーショナルDBの問い合わせ言語。", isReview: false },
-          { id: "m11", question: "「NoSQL」の特徴は？", options: ["スキーマが柔軟・分散向き", "必ずSQL文を使う", "1台のみ", "トランザクションのみ", SKIP_OPTION], correctIndex: 0, explanation: "非リレーショナルなDBの総称。", isReview: false },
-          { id: "m12", question: "「キャッシュ」の目的は？", options: ["応答速度の向上", "永続保存", "暗号化", "バックアップ", SKIP_OPTION], correctIndex: 0, explanation: "頻出データを保持しアクセスを高速化。", isReview: false },
-          { id: "m13", question: "「ロードバランサ」の役割は？", options: ["負荷を複数台に分散", "単一サーバーに集約", "ストレージ管理", "ログ収集", SKIP_OPTION], correctIndex: 0, explanation: "リクエストを複数サーバーに振り分ける。", isReview: false },
-          { id: "m14", question: "「コンテナ」の利点は？", options: ["環境の再現性・軽量", "必ずVMより重い", "Windowsのみ", "ネットワーク不要", SKIP_OPTION], correctIndex: 0, explanation: "アプリと依存関係をまとめて実行。", isReview: false },
-          { id: "m15", question: "「Kubernetes」の用途は？", options: ["コンテナのオーケストレーション", "データベース管理", "監視のみ", "CIのみ", SKIP_OPTION], correctIndex: 0, explanation: "コンテナのデプロイ・スケールを管理。", isReview: false },
-          { id: "m16", question: "「OAuth」の用途は？", options: ["認可・委譲の標準", "暗号化のみ", "キャッシュ", "ログ", SKIP_OPTION], correctIndex: 0, explanation: "第三者に権限を委譲する認可の仕組み。", isReview: false },
-          { id: "m17", question: "「JWT」とは？", options: ["JSON形式のトークン", "Java Web Tool", "JavaScript Widget", "JSON Web Table", SKIP_OPTION], correctIndex: 0, explanation: "署名付きJSONで情報を安全に渡す。", isReview: false },
-          { id: "m18", question: "「CORS」の目的は？", options: ["異なるオリジン間のアクセス制御", "暗号化", "キャッシュ", "ログ", SKIP_OPTION], correctIndex: 0, explanation: "ブラウザのクロスオリジン制限を制御。", isReview: false },
-          { id: "m19", question: "「HTTPS」で使うのは？", options: ["TLS/SSL", "HTTPのみ", "FTP", "SMTP", SKIP_OPTION], correctIndex: 0, explanation: "通信を暗号化するプロトコル。", isReview: false },
-          { id: "m20", question: "「イミュータブル」の意味は？", options: ["変更不可", "高速", "一時的", "分散", SKIP_OPTION], correctIndex: 0, explanation: "作成後に状態を変えない設計。", isReview: false },
-        ];
-        const shuffled = seededShuffle([...MOCK_POOL], timestamp + batchSeed * 1000);
-        for (let i = 0; i < needNew; i++) {
-          const t = shuffled[i % shuffled.length];
-          const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
-            t.options,
-            t.correctIndex,
-            timestamp + i + batchSeed * 1000
-          );
-          questions.push({
-            ...t,
-            id: `new-${timestamp}-${i}`,
-            options: shuffledOpts,
-            correctIndex: newCorrectIdx,
-          });
-        }
+      } catch (e) {
+        console.error("[today-questions] OpenAI 問題生成に失敗しました。空の配列を返します。", e);
+        // 固定の2〜5問を返さず、questions はそのまま（復習分のみ or 空）
       }
-    } catch (e) {
-      console.error("today-questions generate:", e);
     }
   }
 

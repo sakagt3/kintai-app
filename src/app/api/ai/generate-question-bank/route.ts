@@ -1,20 +1,18 @@
 /**
- * プラン適用時に500問を一括生成して QuestionBank に保存する。
- * 出題はこのプールからランダム抽出するため、毎回同じ問題になることを防ぐ。
+ * 問題バンクを生成して QuestionBank に保存する。
+ * POST body の count で指定された問題数だけを 1 回の API コールで生成（デフォルト10、最大20）。
+ * Gemini (gemini-1.5-flash) を使用。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-const BANK_SIZE = 500;
-const BATCH_SIZE = 50;
 const LEVEL_GUIDE: Record<string, string> = {
-  beginner: "初心者向け：平易な言葉、短い文。",
-  intermediate: "中級者向け：基本的な用語可。",
-  advanced: "上級者向け：専門用語と背景に触れる。",
+  beginner: "初心者向け：平易な言葉、短い文で。",
+  intermediate: "中級者向け：基本的な用語を使って。",
+  advanced: "上級者向け：専門用語と背景に触れて。",
   pro: "プロ向け：業界標準用語で簡潔に。",
 };
 const SKIP_OPTION = "わからない（スキップ）";
@@ -27,29 +25,30 @@ type BankQuestion = {
   explanation: string;
 };
 
-function buildBatchPrompt(
-  goal: string,
-  level: string,
-  batchIndex: number,
-  totalBatches: number,
-  count: number
-): string {
+function buildPrompt(goal: string, level: string, count: number): string {
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
-  return `あなたは500問以上の独自問題データベースを脳内に持つ専門講師です。
-このリクエストでは、その中から「${count}問」を選んでJSON配列で出力してください。既に別バッチで出した問題と重複しない、独自の内容にすること。
+  return `あなたは学習用の4択クイズ問題を作成する専門家です。
+以下の【テーマ・指針】と【レベル】に沿って、${count}問の4択問題を生成してください。
 
-【指針・テーマ】
+【テーマ・指針】
 ${goal.trim() || "ビジネス教養（一般常識・マナー・時事）"}
 
 【レベル】
 ${levelGuide}
 
-【出力】必ず${count}問、JSON配列のみ。省略禁止。配列の長さが${count}でなければ失敗。
-1要素: {"question":"短い問題文（1文30字以内）","options":["A","B","C","D","わからない"],"correctIndex":0,"explanation":"短い解説（20字以内）"}
-correctIndexは0〜3。optionsは5つで最後は「わからない」。バッチ${batchIndex + 1}/${totalBatches}。`;
+【出力形式】
+JSON配列のみを出力してください。説明や余計な文字は含めないこと。
+配列の長さは必ず${count}問にしてください。省略禁止。
+
+1問あたりの形式：
+{"question":"問題文（1文30字以内）","options":["選択肢A","選択肢B","選択肢C","選択肢D","わからない"],"correctIndex":0,"explanation":"解説（20字以内）"}
+
+- correctIndex は 0〜3 の整数（正解の選択肢の番号。0=A, 1=B, 2=C, 3=D）
+- options は5つとし、最後は必ず「わからない」
+- 問題文・選択肢・解説は指定テーマとレベルに沿った内容にすること`;
 }
 
-function parseBatchJson(text: string): BankQuestion[] {
+function parseResponseJson(text: string): BankQuestion[] {
   const trimmed = text.replace(/^[\s\S]*?(\[[\s\S]*\])[\s\S]*$/, "$1").trim();
   const arr = JSON.parse(trimmed) as Array<{
     question?: string;
@@ -60,12 +59,12 @@ function parseBatchJson(text: string): BankQuestion[] {
   if (!Array.isArray(arr)) return [];
   return arr
     .filter((x) => x?.question && Array.isArray(x.options) && x.options.length >= 4)
-    .map((x, i) => {
+    .map((x) => {
       let opts = (x.options ?? []).slice(0, 5);
       if (opts.length === 4) opts = [...opts, SKIP_OPTION];
       else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
       return {
-        id: "", // 保存直前に付与
+        id: "",
         question: String(x.question),
         options: opts,
         correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
@@ -84,6 +83,7 @@ export async function POST(request: Request) {
   let goal = "";
   let level = "intermediate";
   let planSummary: string | null = null;
+  let count = 10;
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -95,86 +95,56 @@ export async function POST(request: Request) {
         : "intermediate";
     planSummary =
       typeof body.planSummary === "string" ? body.planSummary.trim() || null : null;
+    const rawCount = typeof body.count === "number" ? body.count : Number(body.count);
+    count = Math.min(20, Math.max(1, Number.isFinite(rawCount) ? rawCount : 10));
   } catch {
     // use defaults
   }
 
-  const effectiveGoal = goal || planSummary || "ビジネス教養";
-  const totalBatches = Math.ceil(BANK_SIZE / BATCH_SIZE); // 10
-  const allQuestions: BankQuestion[] = [];
-
-  if (!process.env.OPENAI_API_KEY) {
-    // モック: 同じテンプレートを500問分複製（テスト用）
-    const templates: BankQuestion[] = [
-      {
-        id: "",
-        question: "RAGの「R」は何の略ですか？",
-        options: ["Retrieval", "Real-time", "Random", "Resource", SKIP_OPTION],
-        correctIndex: 0,
-        explanation: "RAGは Retrieval-Augmented Generation の略です。",
-      },
-      {
-        id: "",
-        question: "LLMで「Hallucination」とは？",
-        options: ["幻覚的な出力", "高速応答", "多言語対応", "暗号化", SKIP_OPTION],
-        correctIndex: 0,
-        explanation: "事実に基づかない内容をそれらしく生成する現象です。",
-      },
-      {
-        id: "",
-        question: "機械学習の「教師あり学習」とは？",
-        options: ["正解付きデータで学習する方式", "ラベルなしデータのみで学習", "強化学習の別名", "推論のみ行う方式", SKIP_OPTION],
-        correctIndex: 0,
-        explanation: "正解（ラベル）付きデータでモデルを学習させる方式です。",
-      },
-      {
-        id: "",
-        question: "APIの「REST」の特徴として適切なのは？",
-        options: ["リソースをURLで表現しHTTPメソッドで操作", "必ずXMLで通信する", "状態をサーバーが保持する", "TCPのみで動作する", SKIP_OPTION],
-        correctIndex: 0,
-        explanation: "RESTはリソースをURLで表現し、GET/POST等で操作するアーキテクチャです。",
-      },
-      {
-        id: "",
-        question: "「マイクロサービス」の利点は？",
-        options: ["サービスごとに独立してスケール・デプロイできる", "必ず1台のサーバーで動作する", "モノリスより常に遅い", "言語を1つに統一しなければならない", SKIP_OPTION],
-        correctIndex: 0,
-        explanation: "サービスを小さく分離することで、独立したスケール・デプロイが可能になります。",
-      },
-    ];
-    for (let i = 0; i < BANK_SIZE; i++) {
-      const t = templates[i % templates.length];
-      allQuestions.push({
-        ...t,
-        id: `bank-${userId}-${i}`,
-      });
-    }
-  } else {
-    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    for (let b = 0; b < totalBatches; b++) {
-      const count = b === totalBatches - 1 ? BANK_SIZE - (totalBatches - 1) * BATCH_SIZE : BATCH_SIZE;
-      const prompt = buildBatchPrompt(effectiveGoal, level, b, totalBatches, count);
-      try {
-        const { text } = await generateText({
-          model: openai("gpt-4o-mini"),
-          prompt,
-          maxOutputTokens: Math.max(4000, count * 350),
-        });
-        const batch = parseBatchJson(text);
-        batch.forEach((q, i) => {
-          allQuestions.push({
-            ...q,
-            id: `bank-${userId}-${b * BATCH_SIZE + i}`,
-          });
-        });
-      } catch (e) {
-        console.error("generate-question-bank batch", b, e);
-        // 失敗したバッチ分はスキップして続行
-      }
-    }
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json(
+      { error: "APIキーが設定されていません" },
+      { status: 500 }
+    );
   }
 
-  if (allQuestions.length < 100) {
+  const effectiveGoal = goal || planSummary || "ビジネス教養";
+  const prompt = buildPrompt(effectiveGoal, level, count);
+  let allQuestions: BankQuestion[] = [];
+
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        maxOutputTokens: Math.max(2000, count * 200),
+        temperature: 0.7,
+      },
+    });
+    const response = result.response;
+    if (!response?.candidates?.length) {
+      console.error("[generate-question-bank] Gemini returned no candidates");
+      return NextResponse.json(
+        { error: "問題の生成に失敗しました。しばらくして再試行してください。" },
+        { status: 500 }
+      );
+    }
+    const text = response.text();
+    allQuestions = parseResponseJson(text);
+    allQuestions = allQuestions.map((q, i) => ({
+      ...q,
+      id: `bank-${userId}-${i}`,
+    }));
+  } catch (e) {
+    console.error("[generate-question-bank] Gemini API error:", e);
+    return NextResponse.json(
+      { error: "問題の生成に失敗しました。しばらくして再試行してください。" },
+      { status: 500 }
+    );
+  }
+
+  if (allQuestions.length < count) {
     return NextResponse.json(
       { error: "問題の生成数が不足しています。しばらくして再試行してください。" },
       { status: 500 }

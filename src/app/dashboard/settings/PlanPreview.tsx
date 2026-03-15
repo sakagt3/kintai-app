@@ -90,6 +90,9 @@ export function PlanPreview({
               このプランを適用して開始する
             </button>
           )}
+          <p className="mt-2 rounded bg-amber-50/80 border border-amber-200/60 px-2 py-1.5 text-[11px] text-amber-800">
+            このプランを適用すると、500問の出題バンクが保存され、ダッシュボードで毎回ランダムに出題されます。未適用のままでは出題は仮の20〜30問の繰り返しになります。
+          </p>
         </>
       )}
 
@@ -99,7 +102,6 @@ export function PlanPreview({
           {appliedPlanSummary.length > 80 ? "…" : ""}
         </p>
       )}
-
       {!planLoading && !displayText && !appliedPlanSummary && (
         <p className="text-xs text-gray-500">
           上の「この内容でプラン作成」を押すと、あなた用のプランが表示されます。

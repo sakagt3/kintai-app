@@ -259,9 +259,25 @@ export default function SettingsPage() {
       setPlanQuestionList(list);
       toast.success(
         list.length > 0
-          ? `プランと問題リスト（${list.length}問）を作成しました。適用すると500問バンクが作られ、ダッシュボードで設定数だけランダムに出題されます。`
+          ? `プランと問題リスト（${list.length}問）を作成しました。500問バンクの生成を開始しています。`
           : "プランを作成しました。下の「このプランを適用して開始する」で確定できます。"
       );
+      // プラン作成直後に500問バンクを非同期で作成開始（適用前でもダッシュボードで出題できるようにする）
+      const summary = planText.slice(0, 2000) + (planText.length > 2000 ? "…" : "");
+      fetch("/api/ai/generate-question-bank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: settings.customLearningGoal || undefined,
+          level: settings.learningLevel,
+          planSummary: summary,
+        }),
+      })
+        .then((r) => r.json().catch(() => ({})))
+        .then((d) => {
+          if (d?.count) toast.info(`500問バンクの生成が完了しました（${d.count}問）。ダッシュボードでランダムに出題されます。`);
+        })
+        .catch(() => {});
     } catch {
       toast.error("プランの生成に失敗しました。");
     } finally {
