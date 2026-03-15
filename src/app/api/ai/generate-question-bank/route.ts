@@ -1,7 +1,7 @@
 /**
  * 問題バンクを生成して QuestionBank に保存する。
  * POST body の count で指定された問題数だけを 1 回の API コールで生成（デフォルト10、最大20）。
- * Gemini (gemini-1.5-flash) を使用。
+ * Gemini (gemini-2.0-flash) を使用。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
