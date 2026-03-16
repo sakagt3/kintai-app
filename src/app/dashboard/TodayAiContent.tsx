@@ -28,6 +28,7 @@ export function TodayAiContent() {
   const [sending, setSending] = useState(false);
   const [extraBatch, setExtraBatch] = useState(0);
   const [dailyQuizCount, setDailyQuizCount] = useState<number | null>(null);
+  const [isComplete, setIsComplete] = useState(false);
 
   const shuffleOptionsClient = useCallback(
     (options: string[], correctIndex: number): { options: string[]; correctIndex: number } => {
@@ -138,6 +139,7 @@ export function TodayAiContent() {
           setDailyQuizCount(
             typeof data.dailyQuizCount === "number" ? data.dailyQuizCount : null
           );
+          setIsComplete(data.is_complete === true);
           setSelectedIndex(null);
           setShowResult(false);
         })
@@ -245,6 +247,33 @@ export function TodayAiContent() {
         </div>
         <p className="text-xs text-slate-400">
           エビングハウスの忘却曲線に基づき出題中
+        </p>
+      </div>
+    );
+  }
+
+  if (isComplete) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-5 text-center dark:border-amber-500 dark:bg-amber-950/40">
+          <p className="text-lg font-bold text-amber-800 dark:text-amber-200">
+            🎉 100問制覇！新しいプランを作成してください
+          </p>
+          <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+            すべての問題が長期記憶ゾーンに到達しました。次の目標に向けて、新しい学習プランを設定しましょう。
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <Link
+            href="/dashboard/settings"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#1E293B]/40 bg-[#1E293B] px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600"
+          >
+            <Sparkles className="h-4 w-4" />
+            新しい学習プランを作成する
+          </Link>
+        </div>
+        <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
+          エビングハウスの忘却曲線に基づき、すべての問題が最長間隔（30日以上）に到達した状態です。
         </p>
       </div>
     );

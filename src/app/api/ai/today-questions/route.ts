@@ -4,8 +4,6 @@
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { TOPICS } from "@/lib/topics";
@@ -101,9 +99,6 @@ export async function GET(request: Request) {
     ? excludeIdsRaw.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
   const timestamp = Date.now();
-  const uniqueId =
-    searchParams.get("unique_id") ||
-    `${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
 
   const userId = session.user.id;
   const settings = await prisma.userSettings.findUnique({
@@ -123,199 +118,139 @@ export async function GET(request: Request) {
       : Math.min(20, Math.max(1, settings?.dailyQuizCount ?? 10));
 
   const questions: QuizItem[] = [];
+  const now = new Date();
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (!isMore && !isNewSession) {
-    // 忘却曲線：過去に間違えた問題・「わからない」を選んだ問題を優先して再出題（nextReviewAt が今日以前のもの）
-    const reviewCandidates = await prisma.quizAttempt.findMany({
-      where: {
-        userId,
-        questionSnapshot: { not: null },
-        nextReviewAt: { lte: new Date(`${today}T23:59:59Z`) },
-      },
-      orderBy: { nextReviewAt: "asc" },
-      take: Math.min(Math.max(1, Math.floor(dailyCount / 3)), 5),
-    });
-
-    const usedReviewIds: string[] = [];
-    for (const r of reviewCandidates) {
-      const item = parseReviewSnapshot(r.questionSnapshot);
-      if (item) {
-        item.id = `review-${r.id}`;
-        const { options, correctIndex } = shuffleOptionsAndFixSkip(
-          item.options,
-          item.correctIndex,
-          timestamp + r.id.length + batchSeed
-        );
-        item.options = options;
-        item.correctIndex = correctIndex;
-        questions.push(item);
-        usedReviewIds.push(r.id);
-      }
-    }
-    if (usedReviewIds.length > 0) {
-      const nextShow = new Date();
-      nextShow.setFullYear(nextShow.getFullYear() + 1);
-      await prisma.quizAttempt.updateMany({
-        where: { id: { in: usedReviewIds } },
-        data: { nextReviewAt: nextShow },
-      });
-    }
-  }
-
-  let needNew = isMore ? dailyCount : dailyCount - questions.length;
-  const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
-
-  // 問題バンクがあればここからランダム抽出（必ずバンク優先。Json の形に依存しないよう正規化）
-  if (needNew > 0) {
-    const bank = await prisma.questionBank.findUnique({
-      where: { userId },
-    });
-    const raw = bank?.questions;
-    let rawArr: unknown[] = [];
-    if (Array.isArray(raw)) {
-      rawArr = raw;
-    } else if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
-      rawArr = Object.values(raw);
-    } else if (typeof raw === "string") {
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        rawArr = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        rawArr = [];
-      }
-    }
-    const bankList: QuizItem[] = rawArr
-      .map((q: unknown, i: number) => {
-        const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-        return {
-          id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
-          question: String(x.question ?? ""),
-          options: Array.isArray(x.options) ? (x.options as string[]) : [],
-          correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
-          explanation: String(x.explanation ?? ""),
-          isReview: false,
-        };
-      })
-      .filter((q) => q.question && q.options.length >= 4);
-    const pool = bankList.filter(
-      (q) => q.id && !excludeIds.includes(q.id)
-    );
-    if (pool.length >= needNew) {
-      const shuffled = seededShuffle(pool, timestamp + batchSeed * 1000);
-      for (let i = 0; i < needNew; i++) {
-        const x = shuffled[i];
-        let opts: string[] = Array.isArray(x.options) ? [...x.options].slice(0, 5) : [];
-        if (opts.length < 4) opts = [...opts, "A", "B", "C", "D"].slice(0, 4);
-        if (opts.length === 4) opts = [...opts, SKIP_OPTION];
-        else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
-        const correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
-        const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
-          opts,
-          correctIdx,
-          timestamp + i + batchSeed * 1000
-        );
-        questions.push({
-          id: String(x.id),
-          question: String(x.question ?? ""),
-          options: shuffledOpts,
-          correctIndex: newCorrectIdx,
-          explanation: String(x.explanation ?? ""),
-          isReview: false,
-        });
-      }
-      needNew = 0;
-    }
-  }
-
-  // A=トピックのみ選択の場合: preferredTopicIds から指針を組み立てる（バンクが無いときのLLM用）
-  let effectivePlan = planSummary || goal;
-  if (!effectivePlan && settings?.preferredTopicIds) {
+  // 問題バンクを取得・正規化
+  const bank = await prisma.questionBank.findUnique({
+    where: { userId },
+  });
+  const raw = bank?.questions;
+  let rawArr: unknown[] = [];
+  if (Array.isArray(raw)) {
+    rawArr = raw;
+  } else if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+    rawArr = Object.values(raw);
+  } else if (typeof raw === "string") {
     try {
-      const ids = JSON.parse(settings.preferredTopicIds) as string[];
-      if (Array.isArray(ids) && ids.length > 0) {
-        const labels = ids
-          .map((id) => TOPICS.find((t) => t.id === id)?.label ?? id)
-          .filter(Boolean);
-        effectivePlan = `選択トピック: ${labels.join("、")}。毎日${dailyCount}問の4択クイズをこれらのトピックから出題。`;
-      }
+      const parsed = JSON.parse(raw) as unknown;
+      rawArr = Array.isArray(parsed) ? parsed : [];
     } catch {
-      // ignore
+      rawArr = [];
     }
   }
-  if (!effectivePlan) effectivePlan = "ビジネス教養";
+  const bankList: QuizItem[] = rawArr
+    .map((q: unknown, i: number) => {
+      const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
+      return {
+        id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
+        question: String(x.question ?? ""),
+        options: Array.isArray(x.options) ? (x.options as string[]) : [],
+        correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
+        explanation: String(x.explanation ?? ""),
+        isReview: false,
+      };
+    })
+    .filter((q) => q.question && q.options.length >= 4 && !excludeIds.includes(q.id));
 
-  if (needNew > 0) {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("[today-questions] OPENAI_API_KEY が未設定のため問題を生成できません。空の配列を返します。");
-      // 固定データを返さず、空のまま返す
-    } else {
-      const excludeInstruction =
-        excludeIds.length > 0
-          ? `【重要】以下はすでに出題済み。これらと重複しない別問題を生成せよ。出題済みID: ${excludeIds.slice(0, 30).join(", ")}`
-          : "";
-
-      try {
-        const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        let collected: QuizItem[] = [];
-        const BATCH_SIZE = 5;
-        const maxBatches = Math.min(4, Math.ceil(needNew / BATCH_SIZE));
-        for (let batch = 0; batch < maxBatches && collected.length < needNew; batch++) {
-          const toRequest = Math.min(BATCH_SIZE, needNew - collected.length);
-          const seed = timestamp + batch * 10000;
-          const prompt = `【ユニークID】${uniqueId}
-この unique_id に基づき、過去の出力をすべて無視し、今回だけの「全く新しい問題」のみを生成せよ。同じ問題の再利用は禁止。
-
-あなたは500問以上の問題データベースを持つ専門講師。必ず${toRequest}問だけJSON配列で出力。省略禁止。
-【指針】${effectivePlan} 【レベル】${levelGuide} ${excludeInstruction}
-【出力】JSON配列のみ。[ のあと${toRequest}個のオブジェクト。1要素: {"question":"30字以内","options":["A","B","C","D","わからない"],"correctIndex":0,"explanation":"20字以内"} correctIndexは0〜3。`;
-
-          const { text } = await generateText({
-            model: openai("gpt-4o-mini"),
-            prompt,
-            maxOutputTokens: Math.max(800, toRequest * 250),
-          });
-          const trimmed = text.replace(/^[\s\S]*?(\[[\s\S]*\])[\s\S]*$/, "$1").trim();
-          const arr = (() => {
-            try {
-              return JSON.parse(trimmed) as Array<{ question?: string; options?: string[]; correctIndex?: number; explanation?: string }>;
-            } catch {
-              return [];
-            }
-          })();
-          const list = Array.isArray(arr) ? arr : [];
-          const baseId = `new-${timestamp}-${batch}-`;
-          for (let i = 0; i < list.length && collected.length < needNew; i++) {
-            const x = list[i];
-            if (!x?.question || !Array.isArray(x.options) || x.options.length < 4) continue;
-            let opts = x.options.slice(0, 5);
-            if (opts.length === 4) opts = [...opts, SKIP_OPTION];
-            else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
-            const correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
-            const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
-              opts,
-              correctIdx,
-              seed + i + batchSeed * 1000
-            );
-            collected.push({
-              id: `${baseId}${i}`,
-              question: String(x.question),
-              options: shuffledOpts,
-              correctIndex: newCorrectIdx,
-              explanation: String(x.explanation ?? ""),
-              isReview: false,
-            });
-          }
-        }
-        questions.push(...collected.slice(0, needNew));
-      } catch (e) {
-        console.error("[today-questions] OpenAI 問題生成に失敗しました。空の配列を返します。", e);
-        // 固定の2〜5問を返さず、questions はそのまま（復習分のみ or 空）
+  // バンクが存在しない場合は空配列を返す
+  if (bankList.length === 0) {
+    return NextResponse.json(
+      {
+        questions: [],
+        retentionRate: null,
+        dailyQuizCount: dailyCount,
+        is_complete: false,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          "Pragma": "no-cache",
+        },
       }
+    );
+  }
+
+  // 各問題の最新の回答履歴を取得
+  const questionIds = bankList.map((q) => q.id);
+  const attempts = await prisma.quizAttempt.findMany({
+    where: {
+      userId,
+      questionId: { in: questionIds },
+    },
+    orderBy: { answeredAt: "desc" },
+  });
+
+  const lastAttemptByQuestion = new Map<string, (typeof attempts)[number]>();
+  for (const a of attempts) {
+    if (!lastAttemptByQuestion.has(a.questionId)) {
+      lastAttemptByQuestion.set(a.questionId, a);
     }
   }
 
+  // 進捗（定着済み / 未出題 / 要復習）を分類
+  const due: typeof bankList = [];
+  const never: typeof bankList = [];
+  const future: typeof bankList = [];
+  let masteredCount = 0;
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+  for (const q of bankList) {
+    const last = lastAttemptByQuestion.get(q.id);
+    if (!last || !last.nextReviewAt) {
+      // 未出題
+      never.push(q);
+      continue;
+    }
+    const diff = last.nextReviewAt.getTime() - now.getTime();
+    if (diff >= THIRTY_DAYS_MS && last.correct) {
+      masteredCount += 1;
+    }
+    if (last.nextReviewAt <= now) {
+      // 復習期限到来
+      due.push(q);
+    } else {
+      future.push(q);
+    }
+  }
+
+  const totalCount = bankList.length;
+  const isComplete = totalCount >= 100 && masteredCount >= 100;
+
+  // 出題優先順位: 復習期限が来た問題 → 未回答 → それ以外
+  const pickOrder: typeof bankList = [
+    ...due.sort((a, b) => {
+      const la = lastAttemptByQuestion.get(a.id);
+      const lb = lastAttemptByQuestion.get(b.id);
+      return (la?.nextReviewAt?.getTime() ?? 0) - (lb?.nextReviewAt?.getTime() ?? 0);
+    }),
+    ...never,
+    ...future,
+  ];
+
+  const toPick = Math.min(dailyCount, pickOrder.length);
+  for (let i = 0; i < toPick; i++) {
+    const x = pickOrder[i];
+    let opts: string[] = Array.isArray(x.options) ? [...x.options].slice(0, 5) : [];
+    if (opts.length < 4) opts = [...opts, "A", "B", "C", "D"].slice(0, 4);
+    if (opts.length === 4) opts = [...opts, SKIP_OPTION];
+    else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
+    const correctIdx = Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0));
+    const { options: shuffledOpts, correctIndex: newCorrectIdx } = shuffleOptionsAndFixSkip(
+      opts,
+      correctIdx,
+      timestamp + i + batchSeed * 1000
+    );
+    questions.push({
+      id: String(x.id),
+      question: String(x.question ?? ""),
+      options: shuffledOpts,
+      correctIndex: newCorrectIdx,
+      explanation: String(x.explanation ?? ""),
+      isReview: !!lastAttemptByQuestion.get(x.id),
+    });
+  }
+
+  // 直近7日間の定着率
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const recent = await prisma.quizAttempt.findMany({
@@ -331,6 +266,9 @@ export async function GET(request: Request) {
       questions,
       retentionRate,
       dailyQuizCount: dailyCount,
+      is_complete: isComplete,
+      masteredCount,
+      totalCount,
     },
     {
       headers: {

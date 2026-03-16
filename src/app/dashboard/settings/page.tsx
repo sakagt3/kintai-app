@@ -144,6 +144,7 @@ export default function SettingsPage() {
           goal: settings.customLearningGoal || undefined,
           level: settings.learningLevel,
           planSummary: summary,
+          count: 100,
         }),
       });
       const bankData = await bankRes.json().catch(() => ({}));
@@ -207,6 +208,7 @@ export default function SettingsPage() {
           goal: `選択トピック: ${topicText}`,
           level: settings.learningLevel,
           planSummary: summary,
+          count: 100,
         }),
       });
       const bankData = await bankRes.json().catch(() => ({}));
@@ -271,6 +273,7 @@ export default function SettingsPage() {
           goal: settings.customLearningGoal || undefined,
           level: settings.learningLevel,
           planSummary: summary,
+          count: 100,
         }),
       })
         .then((r) => r.json().catch(() => ({})))

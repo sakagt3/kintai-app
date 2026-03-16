@@ -1,7 +1,6 @@
 /**
  * 問題バンクを生成して QuestionBank に保存する。
- * POST body の count で指定された問題数だけを 1 回の API コールで生成（デフォルト10、最大20）。
- * Gemini (gemini-2.0-flash) を使用。
+ * 常に 100 問を 20 問 × 5 バッチで生成する（Gemini, gemini-1.5-flash）。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -16,6 +15,8 @@ const LEVEL_GUIDE: Record<string, string> = {
   pro: "プロ向け：業界標準用語で簡潔に。",
 };
 const SKIP_OPTION = "わからない（スキップ）";
+const BATCH_SIZE = 20;
+const TOTAL_COUNT = 100;
 
 type BankQuestion = {
   id: string;
@@ -25,7 +26,7 @@ type BankQuestion = {
   explanation: string;
 };
 
-function buildPrompt(goal: string, level: string, count: number): string {
+function buildPrompt(goal: string, level: string, count: number, batchIndex: number, totalBatches: number): string {
   const levelGuide = LEVEL_GUIDE[level] ?? LEVEL_GUIDE.intermediate;
   return `あなたは学習用の4択クイズ問題を作成する専門家です。
 以下の【テーマ・指針】と【レベル】に沿って、${count}問の4択問題を生成してください。
@@ -38,7 +39,7 @@ ${levelGuide}
 
 【出力形式】
 JSON配列のみを出力してください。説明や余計な文字は含めないこと。
-配列の長さは必ず${count}問にしてください。省略禁止。
+配列の長さは必ず${count}問にしてください。省略禁止。バッチ ${batchIndex + 1}/${totalBatches} として、他バッチと内容が重複しないようにしてください。
 
 1問あたりの形式：
 {"question":"問題文（1文30字以内）","options":["選択肢A","選択肢B","選択肢C","選択肢D","わからない"],"correctIndex":0,"explanation":"解説（20字以内）"}
@@ -83,7 +84,8 @@ export async function POST(request: Request) {
   let goal = "";
   let level = "intermediate";
   let planSummary: string | null = null;
-  let count = 10;
+  // count は常に 100 に固定（body.count は将来の拡張用だが現在は無視）
+  let count = TOTAL_COUNT;
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -95,8 +97,7 @@ export async function POST(request: Request) {
         : "intermediate";
     planSummary =
       typeof body.planSummary === "string" ? body.planSummary.trim() || null : null;
-    const rawCount = typeof body.count === "number" ? body.count : Number(body.count);
-    count = Math.min(20, Math.max(1, Number.isFinite(rawCount) ? rawCount : 10));
+    // body.count は現時点では無視し、常に TOTAL_COUNT を採用する
   } catch {
     // use defaults
   }
@@ -109,33 +110,38 @@ export async function POST(request: Request) {
   }
 
   const effectiveGoal = goal || planSummary || "ビジネス教養";
-  const prompt = buildPrompt(effectiveGoal, level, count);
+  const totalBatches = Math.ceil(count / BATCH_SIZE);
   let allQuestions: BankQuestion[] = [];
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: Math.max(2000, count * 200),
-        temperature: 0.7,
-      },
-    });
-    const response = result.response;
-    if (!response?.candidates?.length) {
-      console.error("[generate-question-bank] Gemini returned no candidates");
-      return NextResponse.json(
-        { error: "問題の生成に失敗しました。しばらくして再試行してください。" },
-        { status: 500 }
-      );
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    for (let b = 0; b < totalBatches && allQuestions.length < count; b++) {
+      const remaining = count - allQuestions.length;
+      const batchCount = Math.min(BATCH_SIZE, remaining);
+      const prompt = buildPrompt(effectiveGoal, level, batchCount, b, totalBatches);
+
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: Math.max(2000, batchCount * 200),
+          temperature: 0.7,
+        },
+      });
+      const response = result.response;
+      if (!response?.candidates?.length) {
+        console.error("[generate-question-bank] Gemini returned no candidates for batch", b);
+        continue;
+      }
+      const text = response.text();
+      const batchQuestions = parseResponseJson(text);
+      const withIds = batchQuestions.map((q, i) => ({
+        ...q,
+        id: `bank-${userId}-${b * BATCH_SIZE + i}`,
+      }));
+      allQuestions.push(...withIds);
     }
-    const text = response.text();
-    allQuestions = parseResponseJson(text);
-    allQuestions = allQuestions.map((q, i) => ({
-      ...q,
-      id: `bank-${userId}-${i}`,
-    }));
   } catch (e) {
     console.error("[generate-question-bank] Gemini API error:", e);
     return NextResponse.json(

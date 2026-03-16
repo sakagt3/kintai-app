@@ -37,6 +37,7 @@ import {
   Calendar,
   PlusCircle,
   GripVertical,
+  BarChart3,
 } from "lucide-react";
 
 const CARD_ORDER_KEYS = ["specialDay", "aiTerm", "headline", "learning"] as const;
@@ -218,6 +219,13 @@ export function DashboardContent() {
   const [preferredTopicIds, setPreferredTopicIds] = useState<string[]>([]);
   const [customLearningGoal, setCustomLearningGoal] = useState("");
   const [cardOrder, setCardOrder] = useState<CardId[]>([...CARD_ORDER_KEYS]);
+  const [learningProgress, setLearningProgress] = useState<{
+    masteredCount: number;
+    totalCount: number;
+    todayTotal: number;
+    todayCorrect: number;
+    isComplete: boolean;
+  } | null>(null);
 
   const fetchSettings = useCallback(() => {
     fetch("/api/settings")
@@ -244,6 +252,22 @@ export function DashboardContent() {
             setCardOrder(valid.length > 0 ? [...valid, ...rest] : [...CARD_ORDER_KEYS]);
           }
         }
+      })
+      .catch(() => {});
+  }, []);
+
+  const fetchLearningProgress = useCallback(() => {
+    fetch("/api/learning-progress", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!json) return;
+        setLearningProgress({
+          masteredCount: json.masteredCount ?? 0,
+          totalCount: json.totalCount ?? 0,
+          todayTotal: json.todayTotal ?? 0,
+          todayCorrect: json.todayCorrect ?? 0,
+          isComplete: json.isComplete ?? false,
+        });
       })
       .catch(() => {});
   }, []);
@@ -275,11 +299,15 @@ export function DashboardContent() {
 
   useEffect(() => {
     fetchSettings();
-  }, [fetchSettings]);
+    fetchLearningProgress();
+  }, [fetchSettings, fetchLearningProgress]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onFocus = () => fetchSettings();
+    const onFocus = () => {
+      fetchSettings();
+      fetchLearningProgress();
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [fetchSettings]);
@@ -362,7 +390,57 @@ export function DashboardContent() {
           </Link>
         ) : (
           <ErrorBoundary sectionName="学習プラン">
-            <TodayAiContent />
+            <div className="space-y-4">
+              {learningProgress && learningProgress.totalCount > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <BarChart3 className="h-3.5 w-3.5" />
+                      学習進捗
+                    </span>
+                    {learningProgress.isComplete && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-400/20 dark:text-amber-100">
+                        🎉 制覇！
+                      </span>
+                    )}
+                  </div>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span>
+                      定着済み {learningProgress.masteredCount} / {learningProgress.totalCount} 問
+                    </span>
+                    <span>
+                      今日: {learningProgress.todayCorrect} / {learningProgress.todayTotal} 正解
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    {(() => {
+                      const ratio =
+                        learningProgress.totalCount > 0
+                          ? Math.min(
+                              1,
+                              learningProgress.masteredCount / learningProgress.totalCount,
+                            )
+                          : 0;
+                      return (
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-[width]"
+                          style={{ width: `${ratio * 100}%` }}
+                        />
+                      );
+                    })()}
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <Link
+                      href="/dashboard/learning-log"
+                      className="text-xs font-semibold text-[#1E293B] underline dark:text-slate-200"
+                    >
+                      学習ログを見る →
+                    </Link>
+                  </div>
+                </div>
+              )}
+              <TodayAiContent />
+            </div>
           </ErrorBoundary>
         ),
       },
