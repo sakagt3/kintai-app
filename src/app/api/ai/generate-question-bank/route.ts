@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const effectiveGoal = goal || planSummary || "ビジネス教養";
+  const effectiveGoal = goal || "ビジネス教養";
   const totalBatches = Math.ceil(count / BATCH_SIZE);
   let allQuestions: BankQuestion[] = [];
 
