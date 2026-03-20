@@ -11,33 +11,17 @@ export default async function LearningLogPage() {
   }
   const userId = session.user.id;
 
-  const bank = await prisma.questionBank.findUnique({
+  const bankRows = await prisma.questionBank.findMany({
     where: { userId },
+    select: { id: true, question: true },
+    orderBy: { createdAt: "asc" },
   });
 
-  const raw = bank?.questions;
-  let rawArr: unknown[] = [];
-  if (Array.isArray(raw)) {
-    rawArr = raw;
-  } else if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
-    rawArr = Object.values(raw);
-  } else if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      rawArr = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      rawArr = [];
-    }
-  }
-
-  const questions = rawArr
-    .map((q: unknown, i: number) => {
-      const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-      return {
-        id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
-        question: String(x.question ?? ""),
-      };
-    })
+  const questions = bankRows
+    .map((row) => ({
+      id: row.id,
+      question: row.question,
+    }))
     .filter((q) => q.id && q.question);
 
   const attempts = await prisma.quizAttempt.findMany({

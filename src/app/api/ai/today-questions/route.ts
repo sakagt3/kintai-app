@@ -17,6 +17,21 @@ const LEVEL_GUIDE: Record<string, string> = {
 
 const SKIP_OPTION = "わからない（スキップ）";
 
+function jsonOptionsToStrings(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v));
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 type QuizItem = {
   id: string;
   question: string;
@@ -120,36 +135,20 @@ export async function GET(request: Request) {
   const questions: QuizItem[] = [];
   const now = new Date();
 
-  // 問題バンクを取得・正規化
-  const bank = await prisma.questionBank.findUnique({
+  // 問題バンク（1問1レコード）を取得
+  const bankRows = await prisma.questionBank.findMany({
     where: { userId },
+    orderBy: { createdAt: "asc" },
   });
-  const raw = bank?.questions;
-  let rawArr: unknown[] = [];
-  if (Array.isArray(raw)) {
-    rawArr = raw;
-  } else if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
-    rawArr = Object.values(raw);
-  } else if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      rawArr = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      rawArr = [];
-    }
-  }
-  const bankList: QuizItem[] = rawArr
-    .map((q: unknown, i: number) => {
-      const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-      return {
-        id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
-        question: String(x.question ?? ""),
-        options: Array.isArray(x.options) ? (x.options as string[]) : [],
-        correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
-        explanation: String(x.explanation ?? ""),
-        isReview: false,
-      };
-    })
+  const bankList: QuizItem[] = bankRows
+    .map((row) => ({
+      id: row.id,
+      question: row.question,
+      options: jsonOptionsToStrings(row.options),
+      correctIndex: Math.min(3, Math.max(0, row.correctIndex)),
+      explanation: row.explanation,
+      isReview: false,
+    }))
     .filter((q) => q.question && q.options.length >= 4 && !excludeIds.includes(q.id));
 
   // バンクが存在しない場合は空配列を返す

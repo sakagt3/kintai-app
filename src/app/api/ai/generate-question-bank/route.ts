@@ -19,7 +19,6 @@ const BATCH_SIZE = 20;
 const TOTAL_COUNT = 100;
 
 type BankQuestion = {
-  id: string;
   question: string;
   options: string[];
   correctIndex: number;
@@ -65,7 +64,6 @@ function parseResponseJson(text: string): BankQuestion[] {
       if (opts.length === 4) opts = [...opts, SKIP_OPTION];
       else if (opts[4] !== SKIP_OPTION && opts[4] !== "わからない") opts = [...opts.slice(0, 4), SKIP_OPTION];
       return {
-        id: "",
         question: String(x.question),
         options: opts,
         correctIndex: Math.min(3, Math.max(0, Number(x.correctIndex) ?? 0)),
@@ -133,11 +131,7 @@ export async function POST(request: Request) {
       }
       const text = response.text();
       const batchQuestions = parseResponseJson(text);
-      const withIds = batchQuestions.map((q, i) => ({
-        ...q,
-        id: `bank-${userId}-${b * BATCH_SIZE + i}`,
-      }));
-      allQuestions.push(...withIds);
+      allQuestions.push(...batchQuestions);
     }
   } catch (e) {
     console.error("[generate-question-bank] Gemini API error:", e);
@@ -154,91 +148,45 @@ export async function POST(request: Request) {
     );
   }
 
-  // 問題文で重複チェック用の正規化（前後空白除去・連続空白を1つに）
+  allQuestions = allQuestions.slice(0, count);
+
+  // @@unique([userId, question]) 用に問題文で重複除去
   function normalizeQuestionText(text: string): string {
     return String(text ?? "")
       .trim()
       .replace(/\s+/g, " ");
   }
+  const seenKeys = new Set<string>();
+  allQuestions = allQuestions.filter((q) => {
+    const key = normalizeQuestionText(q.question);
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    return true;
+  });
 
   try {
-    const existing = await prisma.questionBank.findFirst({
-      where: { userId },
-    });
-
-    const existingList: BankQuestion[] = (() => {
-      const raw = existing?.questions;
-      if (Array.isArray(raw)) {
-        return raw.map((x: unknown, i: number) => {
-          const o = x && typeof x === "object" ? (x as Record<string, unknown>) : {};
-          return {
-            id: (typeof o.id === "string" ? o.id : "") || `bank-${userId}-existing-${i}`,
-            question: String(o.question ?? ""),
-            options: Array.isArray(o.options) ? (o.options as string[]) : [],
-            correctIndex: Math.min(3, Math.max(0, Number(o.correctIndex) ?? 0)),
-            explanation: String(o.explanation ?? ""),
-          };
-        }).filter((q) => q.question && q.options.length >= 4);
-      }
-      if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
-        return (Object.values(raw) as Array<Record<string, unknown>>)
-          .map((o, i) => ({
-            id: (typeof o?.id === "string" ? o.id : "") || `bank-${userId}-existing-${i}`,
-            question: String(o?.question ?? ""),
-            options: Array.isArray(o?.options) ? (o.options as string[]) : [],
-            correctIndex: Math.min(3, Math.max(0, Number(o?.correctIndex) ?? 0)),
-            explanation: String(o?.explanation ?? ""),
-          }))
-          .filter((q) => q.question && q.options.length >= 4);
-      }
-      return [];
-    })();
-
-    const existingTexts = new Set(
-      existingList.map((q) => normalizeQuestionText(q.question))
-    );
-
-    const merged: BankQuestion[] = [...existingList];
-    let nextIndex = merged.length;
-    for (const q of allQuestions) {
-      const key = normalizeQuestionText(q.question);
-      if (existingTexts.has(key)) continue;
-      existingTexts.add(key);
-      merged.push({
-        ...q,
-        id: q.id || `bank-${userId}-${nextIndex}`,
-      });
-      nextIndex += 1;
-    }
-
-    if (existing) {
-      await prisma.questionBank.update({
-        where: { id: existing.id },
-        data: {
-          planSummary: null,
-          questions: merged as unknown as object,
-        },
-      });
-    } else {
-      await prisma.questionBank.create({
-        data: {
+    await prisma.$transaction([
+      prisma.questionBank.deleteMany({ where: { userId } }),
+      prisma.questionBank.createMany({
+        data: allQuestions.map((q) => ({
           userId,
-          planSummary: null,
-          questions: merged as unknown as object,
-        },
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      count: merged.length,
-      added: merged.length - existingList.length,
-    });
+          question: q.question,
+          options: q.options,
+          correctIndex: q.correctIndex,
+          explanation: q.explanation,
+        })),
+      }),
+    ]);
   } catch (e) {
-    console.error("questionBank upsert", e);
+    console.error("questionBank deleteMany/createMany", e);
     return NextResponse.json(
       { error: "問題バンクの保存に失敗しました。" },
       { status: 500 }
     );
   }
+
+  return NextResponse.json({
+    success: true,
+    count: allQuestions.length,
+  });
 }

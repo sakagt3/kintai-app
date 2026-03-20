@@ -11,33 +11,12 @@ export async function GET() {
   }
 
   const userId = session.user.id;
-  const bank = await prisma.questionBank.findUnique({
+  const bankRows = await prisma.questionBank.findMany({
     where: { userId },
+    select: { id: true },
   });
 
-  const raw = bank?.questions;
-  let rawArr: unknown[] = [];
-  if (Array.isArray(raw)) {
-    rawArr = raw;
-  } else if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
-    rawArr = Object.values(raw);
-  } else if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      rawArr = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      rawArr = [];
-    }
-  }
-
-  const questions = rawArr
-    .map((q: unknown, i: number) => {
-      const x = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-      return {
-        id: typeof x.id === "string" ? x.id : `bank-${userId}-${i}`,
-      };
-    })
-    .filter((q) => q.id);
+  const questions = bankRows.map((row) => ({ id: row.id }));
 
   const totalCount = questions.length;
 
