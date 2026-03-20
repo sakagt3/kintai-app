@@ -162,7 +162,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const existing = await prisma.questionBank.findUnique({
+    const existing = await prisma.questionBank.findFirst({
       where: { userId },
     });
 
@@ -211,18 +211,23 @@ export async function POST(request: Request) {
       nextIndex += 1;
     }
 
-    await prisma.questionBank.upsert({
-      where: { userId },
-      create: {
-        userId,
-        planSummary: null,
-        questions: merged as unknown as object,
-      },
-      update: {
-        planSummary: null,
-        questions: merged as unknown as object,
-      },
-    });
+    if (existing) {
+      await prisma.questionBank.update({
+        where: { id: existing.id },
+        data: {
+          planSummary: null,
+          questions: merged as unknown as object,
+        },
+      });
+    } else {
+      await prisma.questionBank.create({
+        data: {
+          userId,
+          planSummary: null,
+          questions: merged as unknown as object,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
