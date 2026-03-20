@@ -22,19 +22,29 @@ model User {
   activityLogs    ActivityLog[]
   learningHistories LearningHistory[]
   loginHistories   LoginHistory[]
-  questionBank    QuestionBank?
+  questionBank  QuestionBank[]
   createdAt       DateTime      @default(now())
 }
 
-/// プラン適用時に生成した500問プール。出題はここからランダム抽出する
 model QuestionBank {
   id           String   @id @default(cuid())
-  userId       String   @unique
+  userId       String   // @uniqueを削除（1人が多くの問題を持てるようにする）
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planSummary  String?  // 適用時の appliedPlanSummary
-  questions    Json     // [{ id, question, options, correctIndex, explanation }] 最低500問
+  
+  // Jsonの中身をバラしてカラムにする
+  question     String   
+  options      Json     // ["選択肢1", "2"...]
+  correctIndex Int
+  explanation  String
+  
+  category     String?  // 検索しやすくするため
+  isUsed       Boolean  @default(false) // 出題済みフラグ
+  
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // 同じユーザーが全く同じ問題を保存しないように制約
+  @@unique([userId, question]) 
 }
 
 /// ログイン成功時の履歴（管理者向け監査用など）

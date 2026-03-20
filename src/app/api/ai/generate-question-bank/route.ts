@@ -1,6 +1,6 @@
 /**
  * 問題バンクを生成して QuestionBank に保存する。
- * 常に 100 問を 20 問 × 5 バッチで生成する（Gemini, gemini-1.5-flash）。
+ * 常に 100 問を 20 問 × 5 バッチで生成する（Gemini, gemini-2.0-flash）。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -83,7 +83,6 @@ export async function POST(request: Request) {
   const userId = session.user.id;
   let goal = "";
   let level = "intermediate";
-  let planSummary: string | null = null;
   // count は常に 100 に固定（body.count は将来の拡張用だが現在は無視）
   let count = TOTAL_COUNT;
 
@@ -95,8 +94,6 @@ export async function POST(request: Request) {
       ["beginner", "intermediate", "advanced", "pro"].includes(body.level)
         ? body.level
         : "intermediate";
-    planSummary =
-      typeof body.planSummary === "string" ? body.planSummary.trim() || null : null;
     // body.count は現時点では無視し、常に TOTAL_COUNT を採用する
   } catch {
     // use defaults
@@ -115,7 +112,7 @@ export async function POST(request: Request) {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     for (let b = 0; b < totalBatches && allQuestions.length < count; b++) {
       const remaining = count - allQuestions.length;
@@ -157,18 +154,80 @@ export async function POST(request: Request) {
     );
   }
 
+  // 問題文で重複チェック用の正規化（前後空白除去・連続空白を1つに）
+  function normalizeQuestionText(text: string): string {
+    return String(text ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
   try {
+    const existing = await prisma.questionBank.findUnique({
+      where: { userId },
+    });
+
+    const existingList: BankQuestion[] = (() => {
+      const raw = existing?.questions;
+      if (Array.isArray(raw)) {
+        return raw.map((x: unknown, i: number) => {
+          const o = x && typeof x === "object" ? (x as Record<string, unknown>) : {};
+          return {
+            id: (typeof o.id === "string" ? o.id : "") || `bank-${userId}-existing-${i}`,
+            question: String(o.question ?? ""),
+            options: Array.isArray(o.options) ? (o.options as string[]) : [],
+            correctIndex: Math.min(3, Math.max(0, Number(o.correctIndex) ?? 0)),
+            explanation: String(o.explanation ?? ""),
+          };
+        }).filter((q) => q.question && q.options.length >= 4);
+      }
+      if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+        return (Object.values(raw) as Array<Record<string, unknown>>)
+          .map((o, i) => ({
+            id: (typeof o?.id === "string" ? o.id : "") || `bank-${userId}-existing-${i}`,
+            question: String(o?.question ?? ""),
+            options: Array.isArray(o?.options) ? (o.options as string[]) : [],
+            correctIndex: Math.min(3, Math.max(0, Number(o?.correctIndex) ?? 0)),
+            explanation: String(o?.explanation ?? ""),
+          }))
+          .filter((q) => q.question && q.options.length >= 4);
+      }
+      return [];
+    })();
+
+    const existingTexts = new Set(
+      existingList.map((q) => normalizeQuestionText(q.question))
+    );
+
+    const merged: BankQuestion[] = [...existingList];
+    let nextIndex = merged.length;
+    for (const q of allQuestions) {
+      const key = normalizeQuestionText(q.question);
+      if (existingTexts.has(key)) continue;
+      existingTexts.add(key);
+      merged.push({
+        ...q,
+        id: q.id || `bank-${userId}-${nextIndex}`,
+      });
+      nextIndex += 1;
+    }
+
     await prisma.questionBank.upsert({
       where: { userId },
       create: {
         userId,
         planSummary,
-        questions: allQuestions as unknown as object,
+        questions: merged as unknown as object,
       },
       update: {
         planSummary,
-        questions: allQuestions as unknown as object,
+        questions: merged as unknown as object,
       },
+    });
+
+    return NextResponse.json({
+      success: true,
+      count: merged.length,
+      added: merged.length - existingList.length,
     });
   } catch (e) {
     console.error("questionBank upsert", e);
@@ -177,9 +236,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    success: true,
-    count: allQuestions.length,
-  });
 }
