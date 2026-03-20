@@ -215,11 +215,11 @@ export async function POST(request: Request) {
       where: { userId },
       create: {
         userId,
-        planSummary,
+        planSummary: null,
         questions: merged as unknown as object,
       },
       update: {
-        planSummary,
+        planSummary: null,
         questions: merged as unknown as object,
       },
     });
