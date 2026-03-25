@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compareSync } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 function isBcryptHash(str: string): boolean {
@@ -23,6 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!user) return null;
 
           const plainPassword = credentials.password as string;
+          const { compareSync } = await import("bcryptjs");
           const matches = isBcryptHash(user.password)
             ? compareSync(plainPassword, user.password)
             : user.password === plainPassword;

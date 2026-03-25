@@ -1,6 +1,6 @@
 /**
  * 問題バンクを生成して QuestionBank に保存する。
- * 常に 100 問を 20 問 × 5 バッチで生成する（Gemini, gemini-1.5-flash-8b）。
+ * 常に 100 問を 20 問 × 5 バッチで生成する（Gemini, gemini-1.5-flash-latest）。
  */
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     for (let b = 0; b < totalBatches && allQuestions.length < count; b++) {
       const remaining = count - allQuestions.length;
