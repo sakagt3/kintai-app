@@ -22,9 +22,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!user) return null;
 
           const plainPassword = credentials.password as string;
-          const { compareSync } = await import("bcryptjs");
+          const { compare } = await import("bcryptjs");
           const matches = isBcryptHash(user.password)
-            ? compareSync(plainPassword, user.password)
+            ? await compare(plainPassword, user.password)
             : user.password === plainPassword;
 
           if (matches) {
