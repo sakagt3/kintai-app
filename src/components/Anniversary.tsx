@@ -1,11 +1,30 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { getTodaysAnniversary } from "@/lib/anniversary";
 
+function getJstDayKey(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(jst.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function Anniversary() {
-  const entry = useMemo(() => getTodaysAnniversary(), []);
+  const [dayKey, setDayKey] = useState(() => getJstDayKey());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const nextKey = getJstDayKey();
+      setDayKey((prev) => (prev === nextKey ? prev : nextKey));
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const entry = useMemo(() => getTodaysAnniversary(), [dayKey]);
 
   return (
     <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-800/40 dark:bg-amber-950/20">
